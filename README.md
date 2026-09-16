@@ -9,9 +9,39 @@ exploration and feedback. Features, APIs, and saved workspace formats may change
 before 1.0. Keep your original RDF files; the store is disposable and in memory.
 See [Data and operating limits](#data-and-operating-limits) before loading a dataset.
 
+## Quickstart with uv
+
+With [uv installed](https://docs.astral.sh/uv/getting-started/installation/), try the
+bundled demo without a permanent install:
+
+```sh
+uvx rdfscope@0.1.0
+```
+
+This opens `http://127.0.0.1:7878` in your browser. Double-click a resource to follow
+its connections, select it to inspect its RDF, or open the SPARQL editor to query
+the dataset. No dataset download or database setup is needed.
+
+To explore your own local RDF file, pass its path:
+
+```sh
+uvx rdfscope@0.1.0 data.ttl
+```
+
+Or connect to a SPARQL endpoint (replace the example URL with yours):
+
+```sh
+uvx rdfscope@0.1.0 --endpoint https://example.org/sparql
+```
+
+Press Ctrl+C in the terminal to stop the server. Each new process starts a fresh
+session; save a workspace in the interface if you want to keep your investigation.
+After the first download, cached local-file sessions can run offline with
+`uvx --offline rdfscope@0.1.0 data.ttl`.
+
 ## Install
 
-Once 0.1.0 is published, install the standalone application from PyPI:
+For regular use, install the standalone application from PyPI:
 
 ```sh
 uv tool install rdfscope==0.1.0
@@ -31,7 +61,7 @@ cargo install rdfscope --version 0.1.0 --locked
 
 Registry source packages include the compiled interface, so Cargo installs and
 Python source builds do not require Node.js. Python source builds require Rust
-and a native C toolchain. Standalone archives with SHA-256 checksums will also be
+and a native C toolchain. Standalone archives with SHA-256 checksums are also
 available on the [GitHub releases page](https://github.com/rvben/rdfscope/releases).
 
 ## Build and run
@@ -55,7 +85,7 @@ The command opens `http://127.0.0.1:7878` with the bundled sample library. To us
 
 `--port 0` selects an available local port and prints the address. Endpoint credentials are read from the named environment variable; values are never printed. You can also enter a bearer token in the connection dialog.
 
-Copy `target/release/rdfscope` to another machine with the same OS and CPU architecture to run it. All UI assets and sample data are embedded at compilation. Build separately for each target platform; the current build was verified on macOS arm64.
+Copy `target/release/rdfscope` to another machine with the same OS and CPU architecture to run it. All UI assets and sample data are embedded at compilation. Build separately for each target platform. Release builds are installed and smoke-tested on Linux x86-64 and ARM64, macOS Intel and Apple Silicon, and Windows x86-64.
 
 ## Explore
 

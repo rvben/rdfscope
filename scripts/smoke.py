@@ -56,6 +56,20 @@ try:
     assert s["triples"] == 3 and s["graphs"][0]["id"] == "https://ex/g"
     d = request("/api/resource?id=https%3A%2F%2Fex%2Falice")
     assert any(x["object"].get("language") == "en" for x in d["outgoing"])
+    inspected = request("/api/inspect", {"id": "https://ex/alice"})
+    assert len(inspected["outgoing"]) == 2 and not inspected["properties_more"]
+    page = request("/api/neighborhood", {"id": "https://ex/alice", "graph": "https://ex/g", "direction": "outgoing"})
+    assert page["total"] == 1 and not page["has_more"] and page["scope"] == "local"
+    groups = request("/api/relations", {"id": "https://ex/alice"})
+    assert groups["groups"][0]["count"] == 1
+    found = request("/api/search", {"q": "alice", "limit": 1})
+    assert found["items"][0]["id"] == "https://ex/alice"
+    try:
+        request("/api/neighborhood", {"id": "https://ex/alice", "predicate": "invalid iri"})
+        raise AssertionError("Invalid predicate accepted")
+    except urllib.error.HTTPError as error:
+        assert error.code == 400
+
     assert request("/api/query", {"query": "ASK { GRAPH ?g { ?s ?p ?o } }"})["value"] is True
     exported = request("/api/export").decode()
     assert "https://ex/g" in exported
@@ -80,6 +94,12 @@ try:
     expanded = request("/api/expand", {"id": "https://fixture.example/alice"})
     assert len(expanded["nodes"]) == 2
     assert len(expanded["edges"]) == 1
+    trace = request("/api/trace")
+    assert len(trace) == 3 and all(entry["status"] == "ok" for entry in trace)
+    assert "fixture-only-token" not in json.dumps(trace)
+    request("/api/trace/clear", {})
+    assert request("/api/trace") == []
+
     try:
         request("/api/connect", {"url": url.replace("/sparql", "/broken")}); raise AssertionError("Broken endpoint accepted")
     except urllib.error.HTTPError as error:
@@ -89,7 +109,7 @@ try:
         request("/api/sample", {}, {"Origin": "https://untrusted.example"}); raise AssertionError("Cross-origin mutation accepted")
     except urllib.error.HTTPError as error:
         assert error.code == 403
-    print("PASS: embedded UI, RDF import, named graphs, literals, SPARQL, export roundtrip, atomic errors, endpoint connection/auth/expansion, token privacy, local origin guard")
+    print("PASS: embedded UI, RDF import, named graphs, literals, SPARQL, export roundtrip, atomic errors, paged browsing/search/inspection, endpoint connection/auth/expansion, trace/token privacy, local origin guard")
 finally:
     request("/api/sample", {})
     fixture.shutdown(); fixture.server_close(); thread.join(timeout=2)

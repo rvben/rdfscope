@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useReactFlow } from "@xyflow/react";
 import {
   Network,
+  Activity,
+  ChevronLeft,
   Search,
   ChevronDown,
   ChevronRight,
@@ -28,6 +30,8 @@ import {
 } from "lucide-react";
 import type {
   Detail,
+  ConnectionPage,
+  SearchPage,
   Graph,
   Position,
   QueryResult,
@@ -49,9 +53,10 @@ import GraphCanvas, { ResourceIcon } from "./GraphCanvas";
 import Inspector from "./Inspector";
 import QueryPanel from "./QueryPanel";
 import OpenDialog from "./OpenDialog";
+import TracePanel from "./TracePanel";
 
 const emptyGraph: Graph = { nodes: [], edges: [], total: 0, truncated: false };
-type View = "graph" | "table" | "query";
+type View = "graph" | "table" | "query" | "trace";
 type Snapshot = {
   graph: Graph;
   positions: Record<string, Position>;
@@ -130,6 +135,7 @@ export default function App() {
     [graph, setGraph] = useState<Graph>(emptyGraph),
     [positions, setPositions] = useState<Record<string, Position>>({}),
     [resources, setResources] = useState<Resource[]>([]);
+  const [detailError, setDetailError] = useState("");
   const [selected, setSelected] = useState<string | null>(null),
     [detail, setDetail] = useState<Detail | null>(null),
     [detailLoading, setDetailLoading] = useState(false);
@@ -161,6 +167,13 @@ export default function App() {
     [history, setHistory] = useState<Snapshot[]>([]),
     [help, setHelp] = useState(false),
     [dragging, setDragging] = useState(false);
+  const [searchScope, setSearchScope] = useState("loaded"),
+    [searchOffset, setSearchOffset] = useState(0),
+    [searchMore, setSearchMore] = useState(false),
+    [searchLoading, setSearchLoading] = useState(false),
+    [searchError, setSearchError] = useState(""),
+    [searchRetry, setSearchRetry] = useState(0);
+  const epoch = useRef(0);
   const searchRef = useRef<HTMLInputElement>(null),
     detailRequest = useRef(0),
     queryRequest = useRef(0),
@@ -183,27 +196,52 @@ export default function App() {
       setSelected(id);
       setInspector(reveal);
       setDetailLoading(true);
+      setDetailError("");
       setDetail(null);
       try {
-        const value = await api<Detail>(
-          "/resource?id=" + encodeURIComponent(id),
-        );
-        if (request === detailRequest.current) setDetail(value);
+        const value = await api<Detail>("/inspect", { id });
+        if (request === detailRequest.current) {
+          setDetail(value);
+          setGraph((g) => ({
+            ...g,
+            nodes: g.nodes.map((n) => (n.id === id ? value.resource : n)),
+          }));
+        }
+        return request === detailRequest.current ? value : null;
       } catch (e) {
         if (request === detailRequest.current)
-          notify((e as Error).message, true);
+          setDetailError((e as Error).message);
       } finally {
         if (request === detailRequest.current) setDetailLoading(false);
       }
     },
     [notify],
   );
+  const refreshSummary = useCallback(
+    (hydrated: Graph) => {
+      const metadata = new Map(hydrated.nodes.map((n) => [n.id, n]));
+      setGraph((g) => ({
+        ...g,
+        nodes: g.nodes.map((n) => metadata.get(n.id) || n),
+      }));
+      void api<Summary>("/summary")
+        .then(setSummary)
+        .catch((e) => notify(e.message, true));
+    },
+    [notify],
+  );
   const reset = useCallback(async () => {
+    epoch.current++;
+    detailRequest.current++;
     const s = await api<Summary>("/summary");
+    setSearchScope(s.source === "endpoint" ? "endpoint" : "loaded");
+    setSearchOffset(0);
     const g = await api<Graph>(
       s.source === "sample"
         ? "/graph?center=https%3A%2F%2Fexample.org%2Fknowledge-graphs&limit=20"
-        : "/graph?limit=26",
+        : s.source === "endpoint"
+          ? "/graph?limit=12"
+          : "/graph?limit=26",
     );
     setSummary(s);
     setGraph(g);
@@ -235,29 +273,77 @@ export default function App() {
       .finally(() => setInitial(false));
   }, [reset, notify]);
   useEffect(() => {
-    let active = true;
+    setSearchOffset(0);
+  }, [search, classFilter, searchScope]);
+  useEffect(() => {
+    const controller = new AbortController();
+    setSearchLoading(true);
+    setSearchError("");
+    setResources([]);
+    setSearchMore(false);
     const timer = setTimeout(
       () => {
-        api<Resource[]>(
-          "/resources?q=" +
-            encodeURIComponent(search) +
-            "&class=" +
-            encodeURIComponent(classFilter),
-        )
-          .then((r) => {
-            if (active) setResources(r);
+        const remote =
+          summary?.source === "endpoint" && searchScope === "endpoint";
+        const task =
+          remote || summary?.source !== "endpoint"
+            ? api<SearchPage>(
+                "/search",
+                {
+                  q: search,
+                  class: classFilter,
+                  offset: searchOffset,
+                  limit: 25,
+                },
+                controller.signal,
+              )
+            : api<Resource[]>(
+                "/resources?q=" +
+                  encodeURIComponent(search) +
+                  "&class=" +
+                  encodeURIComponent(classFilter),
+                undefined,
+                controller.signal,
+              ).then((items) => ({
+                items: items.slice(searchOffset, searchOffset + 25),
+                has_more: items.length > searchOffset + 25,
+                warnings:
+                  items.length === 200
+                    ? [
+                        "Loaded search is limited to the first 200 matches. Narrow your search.",
+                      ]
+                    : [],
+              }));
+        void task
+          .then((page) => {
+            if (controller.signal.aborted) return;
+            setResources(page.items);
+            setSearchMore(page.has_more);
+            if (page.warnings.length) setSearchError(page.warnings.join(" "));
           })
           .catch((e) => {
-            if (active) notify(e.message, true);
+            if (!controller.signal.aborted) setSearchError(e.message);
+          })
+          .finally(() => {
+            if (!controller.signal.aborted) setSearchLoading(false);
           });
       },
-      search ? 160 : 0,
+      search ? 300 : 0,
     );
     return () => {
-      active = false;
+      controller.abort();
       clearTimeout(timer);
     };
-  }, [search, classFilter, summary, notify]);
+  }, [
+    search,
+    classFilter,
+    searchScope,
+    searchOffset,
+    summary?.source,
+    summary?.name,
+    searchScope === "loaded" ? summary?.triples : undefined,
+    searchRetry,
+  ]);
   const checkpoint = () =>
     setHistory((h) => [...h.slice(-19), { graph, positions, selected }]);
   const undo = () => {
@@ -273,27 +359,48 @@ export default function App() {
     }
     setFitKey((k) => k + 1);
   };
+  const addPage = (added: Graph) => {
+    checkpoint();
+    const next = mergeGraph(graph, added);
+    setGraph(next);
+    setPositions(
+      layout(next, positions, selected ? positions[selected] : undefined),
+    );
+    setView("graph");
+    const omitted =
+      added.nodes.some((n) => !next.nodes.some((kept) => kept.id === n.id)) ||
+      next.edges.length <
+        new Set(
+          [...graph.edges, ...added.edges].map((e) =>
+            JSON.stringify([e.source, e.predicate, e.target, e.graph]),
+          ),
+        ).size;
+    notify(
+      omitted
+        ? "Canvas limit reached (200 resources / 2,000 connections). Focus a resource to make room; browsing stays available."
+        : `${Math.max(0, next.nodes.length - graph.nodes.length)} resources added · existing positions kept`,
+    );
+    void api<Summary>("/summary").then(setSummary).catch(fail);
+  };
   const expand = async (id: string) => {
     if (expanding || busy) return;
+    const currentEpoch = epoch.current;
     setExpanding(true);
     try {
-      const added = await api<Graph>("/expand", { id });
-      checkpoint();
-      const next = mergeGraph(graph, added);
-      setGraph(next);
-      setPositions(layout(next, positions, positions[id]));
-      setSummary(await api<Summary>("/summary"));
+      const page = await api<ConnectionPage>("/neighborhood", {
+        id,
+        limit: 25,
+      });
+      if (currentEpoch !== epoch.current) return;
+      addPage(page.graph);
       void select(id);
-      if (added.truncated)
+      if (page.has_more)
         notify(
-          "Showing up to 60 resources in this neighborhood. Use filters or SPARQL to explore further.",
+          "First 25 connections added. Browse connections in the inspector for more pages and filters.",
         );
-      else
-        notify(
-          `${Math.max(0, next.nodes.length - graph.nodes.length)} resources added · existing positions kept`,
-        );
+      if (page.warnings.length) notify(page.warnings.join(" "), true);
     } catch (e) {
-      fail(e);
+      if (currentEpoch === epoch.current) fail(e);
     } finally {
       setExpanding(false);
     }
@@ -317,9 +424,14 @@ export default function App() {
     }
   };
   const explore = async (id: string) => {
+    const d = await select(id);
+    if (!d) return;
     if (!graph.nodes.some((n) => n.id === id)) {
-      try {
-        const d = await api<Detail>("/resource?id=" + encodeURIComponent(id));
+      if (graph.nodes.length >= 200)
+        notify(
+          "Canvas is full. The resource is open in the inspector; focus it to start a new neighborhood.",
+        );
+      else {
         checkpoint();
         const next = mergeGraph(graph, {
           nodes: [d.resource],
@@ -329,17 +441,8 @@ export default function App() {
         });
         setGraph(next);
         setPositions(layout(next, positions));
-      } catch {
-        if (summary?.source === "endpoint") {
-          await expand(id);
-          setView("graph");
-          return;
-        }
-        notify("This resource is not in the loaded dataset.", true);
-        return;
       }
     }
-    void select(id);
     setSidebar(false);
   };
   const runQuery = async () => {
@@ -412,7 +515,9 @@ export default function App() {
     try {
       await api("/connect", { url, token, seed });
       await reset();
-      notify("Connected. Showing a sample; expand resources to fetch more.");
+      notify(
+        "Connected. Search the endpoint or browse a resource’s connections to fetch more.",
+      );
     } finally {
       setBusy(false);
     }
@@ -627,6 +732,34 @@ export default function App() {
             <kbd>/</kbd>
           )}
         </label>
+        {summary?.source === "endpoint" && (
+          <div className="search-scope" role="group" aria-label="Search scope">
+            <button
+              className={searchScope === "endpoint" ? "active" : ""}
+              aria-pressed={searchScope === "endpoint"}
+              onClick={() => setSearchScope("endpoint")}
+            >
+              Endpoint
+            </button>
+            <button
+              className={searchScope === "loaded" ? "active" : ""}
+              aria-pressed={searchScope === "loaded"}
+              onClick={() => setSearchScope("loaded")}
+            >
+              Loaded data
+            </button>
+          </div>
+        )}
+        {summary?.source === "endpoint" &&
+          /^[a-z][a-z0-9+.-]*:\S+$/i.test(search.trim()) && (
+            <button
+              className="open-iri text-button"
+              onClick={() => void explore(search.trim())}
+            >
+              <ArrowUpRight size={13} />
+              Open this IRI
+            </button>
+          )}
         <div className="sidebar-scroll">
           <div className="section-heading">
             <button
@@ -638,7 +771,7 @@ export default function App() {
               ) : (
                 <ChevronRight size={13} />
               )}
-              Types
+              {summary?.sampled ? "Loaded types" : "Types"}
             </button>
             <span>{summary?.classes.length || 0}</span>
           </div>
@@ -683,6 +816,22 @@ export default function App() {
             </span>
           </div>
           <div className="resource-list">
+            {searchLoading && (
+              <p className="empty-note" role="status">
+                Searching…
+              </p>
+            )}
+            {searchError && (
+              <div className="inline-error" role="alert">
+                <p>{searchError}</p>
+                <button
+                  className="text-button"
+                  onClick={() => setSearchRetry((n) => n + 1)}
+                >
+                  Retry search
+                </button>
+              </div>
+            )}
             {resources.map((r) => (
               <button
                 key={r.id}
@@ -709,22 +858,55 @@ export default function App() {
                 <ChevronRight size={12} />
               </button>
             ))}
-            {!resources.length && !initial && (
-              <div className="search-empty">
-                <Search size={20} />
-                <p>No matching resources.</p>
-                <button
-                  className="text-button"
-                  onClick={() => {
-                    setSearch("");
-                    setClassFilter("");
-                  }}
-                >
-                  Clear search and type filter
-                </button>
-              </div>
-            )}
+            {!resources.length &&
+              !initial &&
+              !searchLoading &&
+              !searchError && (
+                <div className="search-empty">
+                  <Search size={20} />
+                  <p>
+                    {summary?.source === "endpoint" &&
+                    searchScope === "endpoint" &&
+                    search.trim().length < 2 &&
+                    !classFilter
+                      ? "Search the endpoint by label or IRI. Enter at least two characters, or choose a loaded type."
+                      : "No matching resources."}
+                  </p>
+                  <button
+                    className="text-button"
+                    onClick={() => {
+                      setSearch("");
+                      setClassFilter("");
+                    }}
+                  >
+                    Clear search and type filter
+                  </button>
+                </div>
+              )}
           </div>
+          {(searchOffset > 0 || searchMore) && (
+            <div className="page-controls search-pages">
+              <button
+                className="icon-button"
+                aria-label="Previous search page"
+                disabled={!searchOffset || searchLoading}
+                onClick={() => setSearchOffset((n) => Math.max(0, n - 25))}
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span>
+                {searchOffset + 1}–{searchOffset + resources.length}
+              </span>
+              <button
+                className="icon-button"
+                aria-label="Next search page"
+                disabled={!searchMore || searchLoading}
+                onClick={() => setSearchOffset((n) => n + 25)}
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
         </div>
         <div className="sidebar-footer">
           <span>
@@ -823,6 +1005,7 @@ export default function App() {
                 ["graph", Network, "Graph"],
                 ["table", Table2, "Resources"],
                 ["query", Terminal, "SPARQL"],
+                ["trace", Activity, "Trace"],
               ] as const
             ).map(([key, Icon, label]) => (
               <button
@@ -1086,6 +1269,16 @@ export default function App() {
                   )}
                 </div>
               </section>
+            ) : view === "trace" ? (
+              <TracePanel
+                remote={summary?.source === "endpoint"}
+                onQuery={(q) => {
+                  setQuery(q);
+                  setQueryResult(null);
+                  setQueryError("");
+                  setView("query");
+                }}
+              />
             ) : (
               <QueryPanel
                 query={query}
@@ -1103,9 +1296,12 @@ export default function App() {
             <Inspector
               detail={detail}
               loading={detailLoading}
+              error={detailError}
+              onRetry={() => selected && void select(selected)}
+              onLoaded={refreshSummary}
               pinned={!!selected && pinned.has(selected)}
               onSelect={(id) => void explore(id)}
-              onExpand={() => selected && void expand(selected)}
+              onAddPage={addPage}
               onFocus={() => selected && void focus(selected)}
               onPin={() => {
                 if (selected)
@@ -1130,8 +1326,6 @@ export default function App() {
                 setDetail(null);
               }}
               onClose={() => setInspector(false)}
-              busy={expanding}
-              resources={[...resources, ...graph.nodes]}
             />
           )}
         </div>

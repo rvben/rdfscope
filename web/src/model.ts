@@ -49,7 +49,36 @@ export interface Statement {
   object: Term;
   graph: string;
 }
+export interface ConnectionPage {
+  graph: Graph;
+  statements: Statement[];
+  offset: number;
+  has_more: boolean;
+  next_offset: number | null;
+  total: number | null;
+  scope: "local" | "cache" | "endpoint";
+  warnings: string[];
+}
+export interface RelationGroups {
+  groups: {
+    predicate: string;
+    label: string;
+    direction: string;
+    count: number;
+  }[];
+  has_more: boolean;
+  scope: string;
+}
+export interface SearchPage {
+  items: Resource[];
+  has_more: boolean;
+  next_offset: number | null;
+  scope: string;
+  warnings: string[];
+}
 export interface Detail {
+  scope?: string;
+  properties_more?: boolean;
   resource: Resource;
   outgoing: Statement[];
   incoming: Statement[];
@@ -98,12 +127,17 @@ export const palette: Record<string, { color: string; bg: string }> = {
   concept: { color: "#237761", bg: "#eaf6ef" },
   resource: { color: "#606b79", bg: "#f0f2f5" },
 };
-export async function api<T>(path: string, body?: unknown): Promise<T> {
+export async function api<T>(
+  path: string,
+  body?: unknown,
+  signal?: AbortSignal,
+): Promise<T> {
   const response = await fetch(
     "/api" + path,
     body === undefined
-      ? undefined
+      ? { signal }
       : {
+          signal,
           method: "POST",
           headers:
             body instanceof FormData
@@ -206,8 +240,10 @@ export function layout(
 
 export function mergeGraph(previous: Graph, added: Graph): Graph {
   const nodes = new Map(previous.nodes.map((n) => [n.id, n]));
+  let omitted = false;
   for (const n of added.nodes)
     if (nodes.has(n.id) || nodes.size < 200) nodes.set(n.id, n);
+    else omitted = true;
   // Backend edge indices may change when an endpoint cache grows; quad identity is stable.
   const edges = new Map<string, Edge>();
   for (const e of [...previous.edges, ...added.edges])
@@ -217,6 +253,7 @@ export function mergeGraph(previous: Graph, added: Graph): Graph {
     nodes: [...nodes.values()],
     edges: [...edges.values()].slice(0, 2000),
     total: Math.max(previous.total, added.total, nodes.size),
-    truncated: added.truncated || nodes.size === 200 || edges.size > 2000,
+    truncated:
+      previous.truncated || added.truncated || omitted || edges.size > 2000,
   };
 }

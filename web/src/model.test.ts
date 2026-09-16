@@ -70,6 +70,18 @@ describe("graph exploration", () => {
     expect(merged.nodes).toHaveLength(200);
     expect(merged.truncated).toBe(true);
   });
+  it("distinguishes a full canvas from omitted results and retains partial-state warnings", () => {
+    const full: Graph = {
+      nodes: Array.from({ length: 200 }, (_, i) => resource(String(i))),
+      edges: [],
+      total: 200,
+      truncated: false,
+    };
+    expect(mergeGraph(full, full).truncated).toBe(false);
+    expect(mergeGraph({ ...graph, truncated: true }, graph).truncated).toBe(
+      true,
+    );
+  });
   it("produces a repeatable layout", () => {
     expect(layout(graph)).toEqual(layout(graph));
   });

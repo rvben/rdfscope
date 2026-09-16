@@ -161,10 +161,12 @@ jobs:
           # publish --dry-run validates an upload but does not guarantee a
           # retained .crate on a fresh runner. Generate the upload artifact.
           cargo package --locked --allow-dirty
+          mkdir -p dist
+          cp target/package/*.crate dist/
       - name: Build Python source package
         run: uvx --from maturin==1.14.1 maturin sdist --out dist
       - name: Verify source package contents
-        run: python3 scripts/release.py check-artifacts 'target/package/*.crate' 'dist/*.tar.gz'
+        run: python3 scripts/release.py check-artifacts 'dist/*.crate' 'dist/*.tar.gz'
       - name: Build and install from the Python source package
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}/target/sdist-build
@@ -177,7 +179,7 @@ jobs:
         with:
           name: sources
           path: |
-            target/package/*.crate
+            dist/*.crate
             dist/*.tar.gz
           if-no-files-found: error
 

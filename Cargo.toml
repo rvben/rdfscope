@@ -14,7 +14,7 @@ categories = ["command-line-utilities", "visualization"]
 include = [
     "/src/**", "/build.rs", "/Cargo.toml", "/Cargo.lock", "/rust-toolchain.toml",
     "/LICENSE", "/README.md", "/CHANGELOG.md", "/pyproject.toml", "/Makefile",
-    "/examples/*.trig", "/docs/releases.md", "/scripts/*.py", "/scripts/*.mjs",
+    "/examples/*.trig", "/docs/releases.md", "/docs/browser-demo.md", "/scripts/*.py", "/scripts/*.mjs",
     "/web/dist/**", "/web/src/**", "/web/public/**", "/web/package.json",
     "/web/package-lock.json", "/web/tsconfig.json", "/web/index.html", "/web/vite.config.ts",
 ]

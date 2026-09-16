@@ -64,6 +64,16 @@ Python source builds do not require Node.js. Python source builds require Rust
 and a native C toolchain. Standalone archives with SHA-256 checksums are also
 available on the [GitHub releases page](https://github.com/rvben/rdfscope/releases).
 
+## Browser edition
+
+RDFscope also builds as a static browser app for Cloudflare. It runs the same Rust
+RDF engine through WebAssembly, so visitors can explore the bundled sample or
+open their own files without installing anything or uploading their data.
+Browser files are limited to 10 MB; endpoint connections use the installed app.
+Save a workspace before closing or reloading the tab.
+
+See [Build, test, and deploy the browser demo](docs/browser-demo.md).
+
 ## Build and run
 
 Development prerequisites: current stable Rust (tested with 1.98), Node.js 22.12 or newer, and npm.

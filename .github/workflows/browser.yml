@@ -1,0 +1,85 @@
+name: Browser demo
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Publish the verified browser demo to Cloudflare
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browser-demo-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  WRANGLER_SEND_METRICS: "false"
+
+jobs:
+  check:
+    name: Browser build and checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: 1.98.0
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: browser -> target
+      - name: Install WebAssembly build tool
+        run: cargo install wasm-pack --version 0.14.0 --locked
+      - run: make browser-check browser
+      - run: npm exec --prefix web -- playwright install --with-deps chromium --only-shell
+      - run: npm --prefix web run test:browser
+      - name: Check Cloudflare deployment configuration
+        run: npx --prefix web wrangler deploy --config wrangler.jsonc --dry-run
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: browser-demo
+          path: web/dist-browser/
+          include-hidden-files: true
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy browser demo
+    needs: check
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --prefix web
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: browser-demo
+          path: web/dist-browser
+      - name: Publish the verified static assets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --prefix web wrangler deploy --config wrangler.jsonc

@@ -59,7 +59,16 @@ def validate_ref(version, env):
     require(env.get("GITHUB_REF_NAME") == f"v{version}", "Tag must match Cargo.toml")
 
 
-def metadata(github=False):
+def check_tree(root=ROOT):
+    status = subprocess.check_output(
+        ["git", "-C", str(root), "status", "--porcelain"], text=True
+    )
+    require(not status.strip(), "Commit source changes before packaging a release")
+
+
+def metadata(github=False, clean=False):
+    if clean:
+        check_tree()
     version, python_version = release_version()
     for path in ["web/package.json", "web/package-lock.json"]:
         data = json.loads((ROOT / path).read_text())
@@ -286,7 +295,9 @@ def smoke(binary):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("metadata").add_argument("--github", action="store_true")
+    metadata_parser = commands.add_parser("metadata")
+    metadata_parser.add_argument("--github", action="store_true")
+    metadata_parser.add_argument("--clean", action="store_true")
     commands.add_parser("check-artifacts").add_argument("patterns", nargs="+")
     archive = commands.add_parser("archive")
     archive.add_argument("--wheel", type=Path, required=True)
@@ -295,7 +306,7 @@ def main():
     commands.add_parser("smoke").add_argument("binary", type=Path)
     args = parser.parse_args()
     if args.command == "metadata":
-        metadata(args.github)
+        metadata(args.github, args.clean)
     elif args.command == "check-artifacts":
         check_artifacts(args.patterns)
     elif args.command == "archive":

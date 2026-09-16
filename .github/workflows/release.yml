@@ -51,7 +51,7 @@ jobs:
       - id: release
         env:
           DRY_RUN: ${{ inputs.dry_run }}
-        run: python scripts/release.py metadata --github
+        run: python scripts/release.py metadata --github --clean
 
   verify:
     needs: metadata
@@ -153,7 +153,11 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
       - name: Build and verify the crates.io package
-        run: cargo publish --dry-run --locked
+        # Only the ignored, generated UI may be uncommitted. Cargo's dirty
+        # check includes those files, so first enforce a clean Git source tree.
+        run: |
+          python3 scripts/release.py metadata --clean
+          cargo publish --dry-run --locked --allow-dirty
       - name: Build Python source package
         run: uvx --from maturin==1.14.1 maturin sdist --out dist
       - name: Verify source package contents

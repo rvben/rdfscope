@@ -16,8 +16,10 @@ test:
 	$(PYTHON) -m unittest discover -s scripts -p 'test_*.py'
 	$(PYTHON) scripts/release.py metadata
 
-package: frontend
-	cargo package --locked
+package:
+	$(PYTHON) scripts/release.py metadata --clean
+	$(MAKE) frontend
+	cargo package --locked --allow-dirty
 	$(MATURIN) build --release --locked --out dist
 	$(MATURIN) sdist --out dist
 	$(PYTHON) scripts/release.py check-artifacts 'target/package/*.crate' 'dist/*.whl' 'dist/rdfscope-[0-9]*.tar.gz'

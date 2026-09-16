@@ -41,7 +41,10 @@ make package
 uvx --from twine==6.2.0 twine check --strict dist/*.whl dist/rdfscope-[0-9]*.tar.gz
 ```
 
-`make package` must start from committed source: Cargo checks the working tree.
+`make package` must start from committed source: the release helper checks Git's
+working tree, including staged changes and untracked source files. Cargo then
+uses `--allow-dirty` specifically because its package includes ignored generated
+UI files. Source files must still be committed before packaging.
 It builds the frontend first, verifies a crates.io source package, and produces
 a native wheel and a Python source distribution. All version metadata derives
 from `Cargo.toml`; the frontend manifest and lockfile must agree. Maturin converts

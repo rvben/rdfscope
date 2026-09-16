@@ -1,15 +1,51 @@
 """Regression checks for release guards and distributable UI completeness."""
 
 import io
+import subprocess
 import tarfile
 import tempfile
 import unittest
 from pathlib import Path
 
-from release import check_source, validate_ref
+from release import check_source, check_tree, validate_ref
 
 
 class ReleaseGuardTests(unittest.TestCase):
+    def test_packaging_accepts_generated_assets_but_requires_clean_source(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+
+            def git(*args):
+                subprocess.run(
+                    ["git", "-C", str(root), *args], check=True, capture_output=True
+                )
+
+            git("init")
+            (root / ".gitignore").write_text("/web/dist/\n")
+            (root / "source.rs").write_text("source")
+            git("add", ".")
+            git(
+                "-c",
+                "user.name=Release test",
+                "-c",
+                "user.email=release@example.invalid",
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "-m",
+                "test: create fixture",
+            )
+            assets = root / "web/dist"
+            assets.mkdir(parents=True)
+            (assets / "index.html").write_text("generated")
+            check_tree(root)
+            (root / "source.rs").write_text("changed")
+            with self.assertRaisesRegex(ValueError, "Commit source changes"):
+                check_tree(root)
+            git("add", "source.rs")
+            with self.assertRaisesRegex(ValueError, "Commit source changes"):
+                check_tree(root)
+
     def test_matching_tag_can_publish(self):
         for event in ["push", "workflow_dispatch"]:
             validate_ref(

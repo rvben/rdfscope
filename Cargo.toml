@@ -3,6 +3,21 @@ name = "rdfscope"
 version = "0.1.0"
 edition = "2024"
 description = "A local RDF explorer in one binary"
+rust-version = "1.98"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/rvben/rdfscope"
+keywords = ["rdf", "sparql", "graph", "visualization", "linked-data"]
+categories = ["command-line-utilities", "visualization"]
+# Generated UI assets are deliberately packaged, but are not committed to Git.
+# Registry installs must not need Node.js or fetch a separate frontend.
+include = [
+    "/src/**", "/build.rs", "/Cargo.toml", "/Cargo.lock", "/rust-toolchain.toml",
+    "/LICENSE", "/README.md", "/CHANGELOG.md", "/pyproject.toml", "/Makefile",
+    "/examples/*.trig", "/docs/releases.md", "/scripts/*.py", "/scripts/*.mjs",
+    "/web/dist/**", "/web/src/**", "/web/public/**", "/web/package.json",
+    "/web/package-lock.json", "/web/tsconfig.json", "/web/index.html", "/web/vite.config.ts",
+]
 
 [[bin]]
 name = "rdfscope"

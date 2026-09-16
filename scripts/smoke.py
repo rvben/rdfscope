@@ -3,6 +3,7 @@ Usage: python3 scripts/smoke.py [http://127.0.0.1:7878]
 Restores the bundled sample at the end. Uses only Python's standard library.
 """
 import json
+import re
 import sys
 import threading
 import urllib.error
@@ -51,7 +52,13 @@ class Endpoint(BaseHTTPRequestHandler):
 fixture = ThreadingHTTPServer(("127.0.0.1", 0), Endpoint)
 thread = threading.Thread(target=fixture.serve_forever, daemon=True); thread.start()
 try:
-    assert b"RDFscope" in request("/")
+    html = request("/")
+    assert b"RDFscope" in html
+    assets = re.findall(rb'(?:src|href)="(/[^"?#]+)', html)
+    assert any(asset.endswith(b".js") for asset in assets)
+    for asset in assets:
+        assert request(asset.decode()), f"Empty embedded asset: {asset}"
+    assert b"react" in request("/THIRD_PARTY_LICENSES.txt")
     s = upload('@prefix ex: <https://ex/> . ex:g { ex:alice ex:knows ex:bob; ex:age 42; ex:name "Alice"@en . }', "test.trig")
     assert s["triples"] == 3 and s["graphs"][0]["id"] == "https://ex/g"
     d = request("/api/resource?id=https%3A%2F%2Fex%2Falice")

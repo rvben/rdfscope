@@ -1,0 +1,269 @@
+name: Release
+
+# Follows the clihatch / Rust CLI release convention: tag releases, default-on
+# dry runs, Maturin wheels, and independent registry publishing jobs.
+# Required repository secrets: CARGO_REGISTRY_TOKEN and PYPI_API_TOKEN.
+on:
+  push:
+    tags: ["v[0-9]*.[0-9]*.[0-9]*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build and validate without publishing
+        type: boolean
+        default: true
+      skip_crates_io:
+        description: Skip crates.io (already published during a partial release)
+        type: boolean
+        default: false
+      skip_pypi:
+        description: Skip PyPI (already published during a partial release)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_HTTP_MULTIPLEXING: "false"
+
+jobs:
+  metadata:
+    name: Validate release version and ref
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      python_version: ${{ steps.release.outputs.python_version }}
+      tag: ${{ steps.release.outputs.tag }}
+      prerelease: ${{ steps.release.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - id: release
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: python scripts/release.py metadata --github
+
+  verify:
+    needs: metadata
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Package (${{ matrix.target }})
+    needs: [metadata, verify]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            manylinux: "2_28"
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            manylinux: "2_28"
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            manylinux: auto
+          - os: macos-14
+            target: aarch64-apple-darwin
+            manylinux: auto
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+            manylinux: auto
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: frontend
+          path: web/dist
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.12"
+      - uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+        with:
+          maturin-version: v1.14.1
+          rust-toolchain: 1.98.0
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux }}
+          args: --release --locked --out dist
+      - name: Validate packages and make standalone archive from the same binary
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          python scripts/release.py check-artifacts 'dist/*.whl'
+          python scripts/release.py archive --wheel dist/*.whl --target "$TARGET"
+      - name: Install and smoke test the wheel on its native architecture
+        shell: bash
+        run: |
+          python -m venv .venv-wheel
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            wheel_bin=.venv-wheel/Scripts
+            binary=rdfscope.exe
+          else
+            wheel_bin=.venv-wheel/bin
+            binary=rdfscope
+          fi
+          "$wheel_bin/python" -m pip install --no-index --no-deps dist/*.whl
+          python scripts/release.py smoke "$wheel_bin/$binary"
+      - name: Upload wheel
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: wheel-${{ matrix.target }}
+          path: dist/*.whl
+          if-no-files-found: error
+      - name: Upload standalone archive and checksum
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: binary-${{ matrix.target }}
+          path: |
+            dist/rdfscope-v*.tar.gz*
+            dist/rdfscope-v*.zip*
+          if-no-files-found: error
+
+  sources:
+    name: Validate Cargo and Python source packages
+    needs: [metadata, verify]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: frontend
+          path: web/dist
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: 1.98.0
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+      - name: Build and verify the crates.io package
+        run: cargo publish --dry-run --locked
+      - name: Build Python source package
+        run: uvx --from maturin==1.14.1 maturin sdist --out dist
+      - name: Verify source package contents
+        run: python3 scripts/release.py check-artifacts 'target/package/*.crate' 'dist/*.tar.gz'
+      - name: Build and install from the Python source package
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target/sdist-build
+        run: |
+          uv venv --python 3.12 .venv-source
+          uv pip install --python .venv-source/bin/python dist/*.tar.gz
+          python3 scripts/release.py smoke .venv-source/bin/rdfscope
+      - name: Upload source packages
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: sources
+          path: |
+            target/package/*.crate
+            dist/*.tar.gz
+          if-no-files-found: error
+
+  validate:
+    name: Validate all Python distribution metadata
+    needs: [build, sources]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: wheel-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: sources
+          path: sources
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+      - run: uvx --from twine==6.2.0 twine check --strict dist/*.whl sources/*.tar.gz
+
+  # Publication jobs share a validation gate, but can be retried independently.
+  publish-crates:
+    name: Publish crates.io
+    needs: [metadata, validate]
+    if: ${{ inputs.dry_run != true && inputs.skip_crates_io != true }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: sources
+          path: sources
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: 1.98.0
+      - name: Publish the validated source package
+        env:
+          VERSION: ${{ needs.metadata.outputs.version }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          tar -xzf "sources/rdfscope-${VERSION}.crate"
+          cargo publish --locked --manifest-path "rdfscope-${VERSION}/Cargo.toml"
+
+  publish-pypi:
+    name: Publish PyPI
+    needs: validate
+    if: ${{ inputs.dry_run != true && inputs.skip_pypi != true }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: wheel-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: sources
+          path: sources
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d
+      - name: Publish validated wheels and source distribution
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: uv publish dist/*.whl sources/*.tar.gz
+
+  github-release:
+    name: Publish GitHub release
+    needs: [metadata, validate]
+    if: ${{ inputs.dry_run != true }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: binary-*
+          path: dist
+          merge-multiple: true
+      - name: Extract this version's release notes
+        env:
+          VERSION: ${{ needs.metadata.outputs.version }}
+        run: |
+          awk -v heading="## [$VERSION]" '
+            /^## / { if (found) exit; if ($0 == heading) found = 1; next }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          test -s release-notes.md
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: ${{ needs.metadata.outputs.tag }}
+          body_path: release-notes.md
+          prerelease: ${{ needs.metadata.outputs.prerelease == 'true' }}
+          overwrite_files: false
+          fail_on_unmatched_files: true
+          files: dist/*

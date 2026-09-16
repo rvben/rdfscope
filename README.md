@@ -4,6 +4,36 @@ A local RDF explorer. Open a file or connect to a SPARQL endpoint, follow connec
 
 RDFscope is a Rust application with an embedded React interface and an in-process Oxigraph store. The built executable needs no Node.js, database server, Docker, or internet connection to explore local files.
 
+**Status: early release (alpha maturity).** Version 0.1.0 is intended for developer
+exploration and feedback. Features, APIs, and saved workspace formats may change
+before 1.0. Keep your original RDF files; the store is disposable and in memory.
+See [Data and operating limits](#data-and-operating-limits) before loading a dataset.
+
+## Install
+
+Once 0.1.0 is published, install the standalone application from PyPI:
+
+```sh
+uv tool install rdfscope==0.1.0
+# Or: pipx install rdfscope==0.1.0
+rdfscope data.ttl
+```
+
+The Python package distributes the Rust executable, with no Python runtime
+dependencies. Wheels target Linux (glibc 2.28+, x86-64 and ARM64), macOS (Intel
+and Apple Silicon), and Windows (x86-64). The installer needs Python 3.10 or newer.
+
+Or install through Cargo with Rust 1.98 or newer:
+
+```sh
+cargo install rdfscope --version 0.1.0 --locked
+```
+
+Registry source packages include the compiled interface, so Cargo installs and
+Python source builds do not require Node.js. Python source builds require Rust
+and a native C toolchain. Standalone archives with SHA-256 checksums will also be
+available on the [GitHub releases page](https://github.com/rvben/rdfscope/releases).
+
 ## Build and run
 
 Development prerequisites: current stable Rust (tested with 1.98), Node.js 22.12 or newer, and npm.
@@ -104,3 +134,11 @@ Source layout:
 - `examples/`: illustrative research library dataset.
 
 Builds bind only to IPv4 loopback. Cross-origin requests and non-local Host headers are rejected. The API is intended for one local user, not shared hosting or direct public exposure.
+
+## Releases and license
+
+See [the release guide](docs/releases.md) for package checks, workflow dry runs,
+registry setup, and recovery after a partial release.
+
+RDFscope is licensed under [MIT](LICENSE). The embedded interface includes its
+dependency notices at `/THIRD_PARTY_LICENSES.txt`.

@@ -1,4 +1,6 @@
 /target/
+/dist/
+/.venv*/
 /web/node_modules/
 /web/dist/
 /.impeccable/

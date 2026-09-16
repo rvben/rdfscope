@@ -11,3 +11,10 @@
 .DS_Store
 *.tsbuildinfo
 __pycache__/
+
+/web/wasm/
+/web/dist-browser/
+/browser/target/
+.wrangler/
+/web/test-results/
+/web/playwright-report/

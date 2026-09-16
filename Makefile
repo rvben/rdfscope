@@ -1,4 +1,4 @@
-.PHONY: frontend build test dev clean package release-check
+.PHONY: frontend build test dev clean package release-check browser browser-check
 PYTHON ?= python3
 MATURIN ?= uvx --from maturin==1.14.1 maturin
 
@@ -35,3 +35,16 @@ dev:
 
 clean:
 	cargo clean
+
+# A separate output keeps browser-only behavior out of the installed application.
+browser:
+	wasm-pack build browser --target web --out-dir ../web/wasm --out-name rdfscope_browser --release -- --locked
+	cd web && npm ci && npx tsc -b && npm run build:browser
+	$(PYTHON) scripts/browser-notices.py
+	cp browser/headers web/dist-browser/_headers
+	cp LICENSE web/dist-browser/LICENSE.txt
+
+browser-check:
+	cargo fmt --manifest-path browser/Cargo.toml --check
+	cargo test --manifest-path browser/Cargo.toml --locked
+	cargo clippy --manifest-path browser/Cargo.toml --locked --all-targets -- -D warnings

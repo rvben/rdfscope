@@ -19,4 +19,4 @@ for (const [path, entry] of Object.entries(lock.packages).sort()) {
     notices.push(readFileSync(resolve(directory, name), "utf8"));
   }
 }
-writeFileSync(resolve(web, "dist/THIRD_PARTY_LICENSES.txt"), notices.join("\n"));
+writeFileSync(resolve(web, process.argv[2] || "dist", "THIRD_PARTY_LICENSES.txt"), notices.join("\n"));

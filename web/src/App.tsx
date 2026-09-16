@@ -1,3 +1,4 @@
+import { browserMode, fileLimitMb } from "#transport";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useReactFlow } from "@xyflow/react";
 import {
@@ -44,6 +45,7 @@ import {
   compact,
   defaultQuery,
   download,
+  exportDataset,
   layout,
   mergeGraph,
   palette,
@@ -461,9 +463,9 @@ export default function App() {
     }
   };
   const importFile = async (file: File) => {
-    if (file.size > 64 * 1024 * 1024)
+    if (file.size > fileLimitMb * 1024 * 1024)
       throw new Error(
-        "Files up to 64 MB are supported. Split larger datasets or connect to a SPARQL endpoint.",
+        `Files up to ${fileLimitMb} MB are supported. ${browserMode ? "Use the installed app for larger datasets." : "Split larger datasets or connect to a SPARQL endpoint."}`,
       );
     setBusy(true);
     try {
@@ -533,9 +535,7 @@ export default function App() {
   };
   const save = async () => {
     try {
-      const response = await fetch("/api/export");
-      if (!response.ok) throw new Error("Could not export the loaded dataset.");
-      const nquads = await response.text();
+      const nquads = await exportDataset();
       const saved: Workspace = {
         version: 1,
         name: summary?.name || "Workspace",
@@ -680,7 +680,8 @@ export default function App() {
             <Network size={23} strokeWidth={1.6} />
           </span>
           <span>
-            RDFscope<small>RDF explorer</small>
+            RDFscope
+            <small>{browserMode ? "Browser edition" : "RDF explorer"}</small>
           </span>
         </a>
         <div className="source-block">
@@ -911,7 +912,7 @@ export default function App() {
         <div className="sidebar-footer">
           <span>
             <span className="status-dot" />
-            Running locally
+            {browserMode ? "Data stays in this tab" : "Running locally"}
           </span>
           <button
             className="icon-button"
@@ -948,24 +949,47 @@ export default function App() {
               <p>
                 {summary?.sampled
                   ? "Explore a live endpoint, one neighborhood at a time."
-                  : "Every connection is a place to start."}
+                  : browserMode
+                    ? "Explore privately in your browser · Files up to 10 MB"
+                    : "Every connection is a place to start."}
               </p>
             </div>
           </div>
           <div className="topbar-actions">
+            {browserMode ? (
+              <a
+                className="button quiet connect-button"
+                href="https://github.com/rvben/rdfscope#install"
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Install RDFscope"
+              >
+                <Download size={15} />
+                <span>Get the app</span>
+              </a>
+            ) : (
+              <button
+                className="button quiet connect-button"
+                aria-label="Connect endpoint"
+                onClick={() => openSource("endpoint")}
+              >
+                <Globe size={15} />
+                <span>Connect endpoint</span>
+              </button>
+            )}
             <button
-              className="button quiet connect-button"
-              onClick={() => openSource("endpoint")}
+              className="button"
+              aria-label="Open file"
+              onClick={() => openSource("file")}
             >
-              <Globe size={15} />
-              <span>Connect endpoint</span>
-            </button>
-            <button className="button" onClick={() => openSource("file")}>
               <FolderOpen size={15} />
               <span>Open file</span>
             </button>
             <details className="export-menu">
-              <summary className="button save-button">
+              <summary
+                className="button save-button"
+                aria-label="Save and export"
+              >
                 <Download size={15} />
                 <span>Save</span>
                 <ChevronDown size={12} />
@@ -990,10 +1014,23 @@ export default function App() {
                   <Share2 size={15} />
                   Export graph as SVG
                 </button>
-                <a href="/api/export" download="rdfscope-export.nq">
+                <button
+                  onClick={(e) => {
+                    e.currentTarget.closest("details")?.removeAttribute("open");
+                    void exportDataset()
+                      .then((rdf) =>
+                        download(
+                          "rdfscope-export.nq",
+                          rdf,
+                          "application/n-quads",
+                        ),
+                      )
+                      .catch(fail);
+                  }}
+                >
                   <FileCode2 size={15} />
                   Export RDF as N-Quads
-                </a>
+                </button>
               </div>
             </details>
           </div>
@@ -1007,20 +1044,22 @@ export default function App() {
                 ["query", Terminal, "SPARQL"],
                 ["trace", Activity, "Trace"],
               ] as const
-            ).map(([key, Icon, label]) => (
-              <button
-                key={key}
-                className={view === key ? "active" : ""}
-                aria-current={view === key ? "page" : undefined}
-                onClick={() => {
-                  setView(key);
-                  if (key === "graph") setFitKey((k) => k + 1);
-                }}
-              >
-                <Icon size={15} />
-                {label}
-              </button>
-            ))}
+            )
+              .filter(([key]) => !browserMode || key !== "trace")
+              .map(([key, Icon, label]) => (
+                <button
+                  key={key}
+                  className={view === key ? "active" : ""}
+                  aria-current={view === key ? "page" : undefined}
+                  onClick={() => {
+                    setView(key);
+                    if (key === "graph") setFitKey((k) => k + 1);
+                  }}
+                >
+                  <Icon size={15} />
+                  {label}
+                </button>
+              ))}
           </nav>
           <div className="view-actions">
             {view === "graph" && (

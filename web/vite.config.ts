@@ -1,6 +1,19 @@
 import { defineConfig } from "vite";
+import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  resolve: {
+    alias: {
+      "#transport": fileURLToPath(
+        new URL(
+          mode === "browser"
+            ? "./src/transport/browser.ts"
+            : "./src/transport/native.ts",
+          import.meta.url,
+        ),
+      ),
+    },
+  },
   plugins: [react()],
   server: {
     host: "127.0.0.1",
@@ -16,5 +29,9 @@ export default defineConfig({
       },
     },
   },
-  build: { chunkSizeWarningLimit: 650 },
-});
+  build: {
+    chunkSizeWarningLimit: 650,
+    outDir: mode === "browser" ? "dist-browser" : "dist",
+  },
+  worker: { format: "es" },
+}));

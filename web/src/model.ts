@@ -1,3 +1,4 @@
+import { request } from "#transport";
 export interface Term {
   kind: "uri" | "bnode" | "literal";
   value: string;
@@ -132,23 +133,7 @@ export async function api<T>(
   body?: unknown,
   signal?: AbortSignal,
 ): Promise<T> {
-  const response = await fetch(
-    "/api" + path,
-    body === undefined
-      ? { signal }
-      : {
-          signal,
-          method: "POST",
-          headers:
-            body instanceof FormData
-              ? { "x-rdfscope-request": "1" }
-              : {
-                  "Content-Type": "application/json",
-                  "x-rdfscope-request": "1",
-                },
-          body: body instanceof FormData ? body : JSON.stringify(body),
-        },
-  );
+  const response = await request(path, body, signal);
   if (!response.ok) {
     const text = await response.text();
     let message = text;
@@ -160,6 +145,11 @@ export async function api<T>(
     throw new Error(message || `Request failed (${response.status})`);
   }
   return response.json();
+}
+export async function exportDataset(): Promise<string> {
+  const response = await request("/export");
+  if (!response.ok) throw new Error("Could not export the loaded dataset.");
+  return response.text();
 }
 export function download(
   name: string,

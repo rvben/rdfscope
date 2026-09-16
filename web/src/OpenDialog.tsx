@@ -1,3 +1,4 @@
+import { browserMode, fileLimitMb } from "#transport";
 import { useEffect, useRef, useState } from "react";
 import {
   X,
@@ -35,7 +36,7 @@ export default function OpenDialog({
     [error, setError] = useState("");
   useEffect(() => {
     if (open) {
-      setTab(initialTab);
+      setTab(browserMode ? "file" : initialTab);
       setError("");
       ref.current?.showModal();
     } else {
@@ -68,7 +69,11 @@ export default function OpenDialog({
       <div className="dialog-heading">
         <div>
           <h2 id="open-title">A new perspective on your data.</h2>
-          <p>Open a file, or explore a SPARQL endpoint.</p>
+          <p>
+            {browserMode
+              ? "Open your own RDF file. It stays in this browser tab."
+              : "Open a file, or explore a SPARQL endpoint."}
+          </p>
         </div>
         <button
           className="icon-button"
@@ -79,26 +84,28 @@ export default function OpenDialog({
           <X size={19} />
         </button>
       </div>
-      <div className="source-tabs" role="tablist">
-        <button
-          role="tab"
-          aria-selected={tab === "file"}
-          className={tab === "file" ? "active" : ""}
-          onClick={() => setTab("file")}
-        >
-          <FileCode2 size={16} />
-          Local file
-        </button>
-        <button
-          role="tab"
-          aria-selected={tab === "endpoint"}
-          className={tab === "endpoint" ? "active" : ""}
-          onClick={() => setTab("endpoint")}
-        >
-          <Globe size={16} />
-          SPARQL endpoint
-        </button>
-      </div>
+      {!browserMode && (
+        <div className="source-tabs" role="tablist">
+          <button
+            role="tab"
+            aria-selected={tab === "file"}
+            className={tab === "file" ? "active" : ""}
+            onClick={() => setTab("file")}
+          >
+            <FileCode2 size={16} />
+            Local file
+          </button>
+          <button
+            role="tab"
+            aria-selected={tab === "endpoint"}
+            className={tab === "endpoint" ? "active" : ""}
+            onClick={() => setTab("endpoint")}
+          >
+            <Globe size={16} />
+            SPARQL endpoint
+          </button>
+        </div>
+      )}
       {tab === "file" ? (
         <div role="tabpanel">
           <button
@@ -128,7 +135,8 @@ export default function OpenDialog({
               Turtle · TriG · N-Triples · N-Quads · RDF/XML · JSON-LD
             </small>
             <small>
-              Up to 64 MB · Saved .rdfscope.json workspaces also supported
+              Up to {fileLimitMb} MB · Saved .rdfscope.json workspaces also
+              supported
             </small>
           </button>
           <input
@@ -144,8 +152,23 @@ export default function OpenDialog({
           />
           <p className="privacy-note">
             <LockKeyhole size={13} />
-            Files are processed locally on this computer.
+            {browserMode
+              ? "Files are never uploaded. Save a workspace before closing or reloading this tab."
+              : "Files are processed locally on this computer."}
           </p>
+          {browserMode && (
+            <p className="browser-install-note">
+              Need larger files or SPARQL endpoints?{" "}
+              <a
+                href="https://github.com/rvben/rdfscope#install"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Get the app
+              </a>
+              .
+            </p>
+          )}
         </div>
       ) : (
         <form

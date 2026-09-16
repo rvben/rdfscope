@@ -2497,3 +2497,16 @@ tr.selected td {
     padding: 8px 0;
   }
 }
+
+.browser-install-note {
+  padding: 0 26px 20px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: center;
+}
+.browser-install-note a {
+  color: var(--green);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

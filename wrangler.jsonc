@@ -1,0 +1,9 @@
+{
+  "$schema": "./web/node_modules/wrangler/config-schema.json",
+  "name": "rdfscope-demo",
+  "compatibility_date": "2026-09-16",
+  "assets": {
+    "directory": "./web/dist-browser",
+    "not_found_handling": "404-page"
+  }
+}

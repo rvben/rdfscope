@@ -2,6 +2,14 @@
 
 A local RDF explorer. Open a file or connect to a SPARQL endpoint, follow connections, inspect the exact RDF terms, and save your investigation.
 
+**[Try RDFscope in your browser →](https://rdfscope-demo.rvben.workers.dev/)** · [Quickstart with uv](#quickstart-with-uv)
+
+Explore the sample or open your own RDF file. No installation; your data stays in your browser.
+
+[![RDFscope browser edition showing The Semantic Web connected to its authors, publisher, and related concepts, with exact RDF properties in the inspector.](https://raw.githubusercontent.com/rvben/rdfscope/main/docs/images/rdfscope-demo.png)](https://rdfscope-demo.rvben.workers.dev/)
+
+*A real exploration of the bundled sample. Click the screenshot to try it yourself.*
+
 RDFscope is a Rust application with an embedded React interface and an in-process Oxigraph store. The built executable needs no Node.js, database server, Docker, or internet connection to explore local files.
 
 **Status: early release (alpha maturity).** Version 0.1.0 is intended for developer
@@ -66,9 +74,10 @@ available on the [GitHub releases page](https://github.com/rvben/rdfscope/releas
 
 ## Browser edition
 
-RDFscope also builds as a static browser app for Cloudflare. It runs the same Rust
-RDF engine through WebAssembly, so visitors can explore the bundled sample or
-open their own files without installing anything or uploading their data.
+[Open the browser demo](https://rdfscope-demo.rvben.workers.dev/) to explore the
+bundled sample or your own files without installing anything or uploading data.
+It runs the same Rust RDF engine through WebAssembly, hosted as a static app on
+Cloudflare.
 Browser files are limited to 10 MB; endpoint connections use the installed app.
 Save a workspace before closing or reloading the tab.
 

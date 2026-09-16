@@ -167,9 +167,11 @@ Connect to the printed URL using the printed seed IRI. The fixture contains 138 
 Source layout:
 
 - `src/main.rs`: CLI, local HTTP API, embedded assets, request guards.
+- `src/lib.rs`: shared RDF engine used by the native CLI and browser adapter.
 - `src/dataset.rs`: Oxigraph ingestion, indexes, graph projection, queries, serialization.
 - `src/remote.rs`: endpoint discovery, bounded requests, metadata, and query trace.
-- `src/exploration.rs`: paginated local connections and shared exploration types.
+- `src/exploration.rs`: shared search, property inspection, paginated connections, and exploration types.
+- `browser/`: WebAssembly adapter; shares the root Cargo lockfile and builds without native dependencies.
 - `web/src/`: React graph workspace, inspector, query editor, import flow.
 - `examples/`: illustrative research library dataset.
 

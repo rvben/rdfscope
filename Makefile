@@ -1,4 +1,4 @@
-.PHONY: frontend build test dev clean package release-check browser browser-check
+.PHONY: frontend build test core-check dev clean package release-check browser browser-check
 PYTHON ?= python3
 MATURIN ?= uvx --from maturin==1.14.1 maturin
 
@@ -8,13 +8,18 @@ frontend:
 build: frontend
 	cargo build --release --locked
 
-test:
+test: core-check
 	cd web && npm run format:check && npm run test && npm run build
-	cargo fmt --check
+	cargo fmt --all --check
 	cargo clippy --locked --all-targets -- -D warnings
 	cargo test --locked
 	$(PYTHON) -m unittest discover -s scripts -p 'test_*.py'
 	$(PYTHON) scripts/release.py metadata
+
+# The library must also work without the native server and CLI features.
+core-check:
+	cargo test --locked --no-default-features --lib
+	cargo clippy --locked --no-default-features --lib -- -D warnings
 
 package:
 	$(PYTHON) scripts/release.py metadata --clean
@@ -38,13 +43,13 @@ clean:
 
 # A separate output keeps browser-only behavior out of the installed application.
 browser:
-	wasm-pack build browser --target web --out-dir ../web/wasm --out-name rdfscope_browser --release -- --locked
+	wasm-pack build browser --target web --out-dir ../web/wasm --out-name rdfscope_browser --profile browser --no-opt -- --locked
 	cd web && npm ci && npx tsc -b && npm run build:browser
 	$(PYTHON) scripts/browser-notices.py
 	cp browser/headers web/dist-browser/_headers
 	cp LICENSE web/dist-browser/LICENSE.txt
 
-browser-check:
-	cargo fmt --manifest-path browser/Cargo.toml --check
+browser-check: core-check
+	cargo fmt --all --check
 	cargo test --manifest-path browser/Cargo.toml --locked
 	cargo clippy --manifest-path browser/Cargo.toml --locked --all-targets -- -D warnings

@@ -1,8 +1,8 @@
-use crate::dataset::{Dataset, RDF_TYPE, RdfTerm, Resource, Result, Statement, short};
-use crate::exploration::{
+use oxigraph::{io::RdfFormat, model::*, sparql::SparqlEvaluator, store::Store};
+use rdfscope::dataset::{Dataset, RDF_TYPE, RdfTerm, Resource, Result, Statement, short};
+use rdfscope::exploration::{
     self, Direction, Groups, Page, PageRequest, RelationGroup, SearchPage, SearchRequest,
 };
-use oxigraph::{io::RdfFormat, model::*, sparql::SparqlEvaluator, store::Store};
 use serde::Serialize;
 use serde_json::{Value, json};
 use std::{
@@ -360,7 +360,7 @@ impl Remote {
         if values.is_empty() {
             return (vec![], vec![]);
         }
-        let predicates = crate::dataset::LABELS
+        let predicates = rdfscope::dataset::LABELS
             .iter()
             .copied()
             .chain([RDF_TYPE])
@@ -515,7 +515,7 @@ fn search_query(p: &SearchRequest) -> Result<String> {
     let candidate = "{ ?id ?any ?value } UNION { ?subject ?any ?id }";
     let scope = graph_pattern(candidate, "")?;
     let text = Literal::new_simple_literal(p.q.trim().to_lowercase());
-    let predicates = crate::dataset::LABELS
+    let predicates = rdfscope::dataset::LABELS
         .iter()
         .map(|p| format!("<{p}>"))
         .collect::<Vec<_>>()

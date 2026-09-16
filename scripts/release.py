@@ -139,10 +139,17 @@ def check_source(path, version, cargo_version=None):
                 and name not in {"DESIGN.md", "PRODUCT.md"},
                 f"Private working file packaged: {name}",
             )
+            require(
+                not name.startswith(("browser/", "web/dist-browser/", "web/wasm/")),
+                f"Browser build files packaged in native distribution: {name}",
+            )
         required = {
             "Cargo.toml",
             "Cargo.lock",
             "src/main.rs",
+            "src/lib.rs",
+            "src/dataset.rs",
+            "src/exploration.rs",
             "build.rs",
             "LICENSE",
             "README.md",

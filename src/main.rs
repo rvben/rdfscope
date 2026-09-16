@@ -1,5 +1,3 @@
-mod dataset;
-mod exploration;
 mod remote;
 
 use axum::{
@@ -11,7 +9,7 @@ use axum::{
     routing::{get, post},
 };
 use clap::Parser;
-use dataset::Dataset;
+use rdfscope::{Dataset, dataset, exploration, sample_dataset as sample};
 use remote::Remote;
 use rust_embed::RustEmbed;
 use serde::Deserialize;
@@ -71,15 +69,6 @@ impl IntoResponse for ApiError {
     }
 }
 type ApiResult<T> = std::result::Result<T, ApiError>;
-fn sample() -> dataset::Result<Dataset> {
-    let mut ds = Dataset::parse(
-        include_bytes!("../examples/research-library.trig"),
-        "research-library.trig",
-        "sample",
-    )?;
-    ds.summary.name = "The connected library".into();
-    Ok(ds)
-}
 fn snapshot(app: &App) -> Arc<Dataset> {
     app.workspace.read().unwrap().dataset.clone()
 }
@@ -341,50 +330,28 @@ async fn search(
     if let Some(remote) = remote {
         Ok(Json(remote.search(&p).await?))
     } else {
-        let ds = snapshot(&app);
-        let mut items = ds.search(&p.q, &p.class, p.offset + p.limit + 1);
-        let has_more = items.len() > p.offset + p.limit;
-        items = items.into_iter().skip(p.offset).take(p.limit).collect();
-        let next_offset = has_more.then_some(p.offset + items.len());
-        Ok(Json(exploration::SearchPage {
-            items,
-            has_more,
-            next_offset,
-            scope: "local",
-            warnings: vec![],
-        }))
+        Ok(Json(snapshot(&app).search_page(&p)?))
     }
 }
-async fn inspect(State(app): State<App>, Json(p): Json<ResourceParams>) -> ApiResult<Json<Value>> {
+async fn inspect(
+    State(app): State<App>,
+    Json(p): Json<ResourceParams>,
+) -> ApiResult<Json<exploration::Inspection>> {
     let _guard = app.mutation.lock().await;
     let remote = app.workspace.read().unwrap().remote.clone();
     let previous = snapshot(&app);
-    let (ds, more, scope) = if let Some(remote) = remote
+    if let Some(remote) = remote
         && !p.id.starts_with("_:")
     {
         let (ds, more) = remote.inspect(&p.id, &previous).await?;
+        let mut detail = ds.inspect(&p.id)?;
+        detail.properties_more |= more;
+        detail.scope = "endpoint";
         replace(&app, ds, Some(remote));
-        (snapshot(&app), more, "endpoint")
+        Ok(Json(detail))
     } else {
-        (previous, false, "local")
-    };
-    let mut detail = serde_json::to_value(ds.detail(&p.id)?).map_err(|e| e.to_string())?;
-    let properties: Vec<_> = ds
-        .statements
-        .iter()
-        .filter(|s| {
-            s.subject == p.id && (s.object.kind == "literal" || s.predicate == dataset::RDF_TYPE)
-        })
-        .collect();
-    detail["outgoing"] = json!(properties.iter().take(300).collect::<Vec<_>>());
-    detail["outgoing_total"] = json!(properties.len());
-    detail["properties_more"] = json!(more || properties.len() > 300);
-    detail["scope"] = json!(if ds.summary.sampled && scope == "local" {
-        "cache"
-    } else {
-        scope
-    });
-    Ok(Json(detail))
+        Ok(Json(previous.inspect(&p.id)?))
+    }
 }
 async fn trace(State(app): State<App>) -> Json<Vec<remote::QueryTrace>> {
     Json(

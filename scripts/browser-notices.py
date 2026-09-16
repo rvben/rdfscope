@@ -17,13 +17,26 @@ metadata = json.loads(
             "--format-version",
             "1",
             "--locked",
+            "--no-default-features",
             "--filter-platform",
             "wasm32-unknown-unknown",
         ],
         text=True,
     )
 )
-resolved = {node["id"] for node in metadata["resolve"]["nodes"]}
+nodes = {node["id"]: node for node in metadata["resolve"]["nodes"]}
+resolved = set()
+pending = [metadata["resolve"]["root"]]
+while pending:
+    package_id = pending.pop()
+    if package_id in resolved:
+        continue
+    resolved.add(package_id)
+    pending.extend(
+        dependency["pkg"]
+        for dependency in nodes[package_id]["deps"]
+        if any(kind["kind"] != "dev" for kind in dependency["dep_kinds"])
+    )
 notices = ["\nRust dependencies used to build the browser RDF engine\n"]
 for package in sorted(metadata["packages"], key=lambda p: (p["name"], p["version"])):
     if package["id"] not in resolved or package["source"] is None:

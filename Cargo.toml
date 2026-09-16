@@ -19,21 +19,38 @@ include = [
     "/web/package-lock.json", "/web/tsconfig.json", "/web/index.html", "/web/vite.config.ts",
 ]
 
+[workspace]
+members = ["browser"]
+default-members = ["."]
+resolver = "3"
+
+[lib]
+path = "src/lib.rs"
+
 [[bin]]
 name = "rdfscope"
 path = "src/main.rs"
+required-features = ["native"]
+
+[features]
+default = ["native"]
+native = [
+    "dep:axum", "dep:clap", "dep:reqwest", "dep:rust-embed", "dep:tokio",
+    "dep:tower-http", "dep:webbrowser",
+]
+browser = ["oxigraph/js"]
 
 [dependencies]
-axum = { version = "0.8", features = ["multipart"] }
-clap = { version = "4.6", features = ["derive"] }
+axum = { version = "0.8", features = ["multipart"], optional = true }
+clap = { version = "4.6", features = ["derive"], optional = true }
 oxigraph = { version = "0.5.11", default-features = false }
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
-rust-embed = { version = "8.11", features = ["debug-embed"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"], optional = true }
+rust-embed = { version = "8.11", features = ["debug-embed"], optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal", "sync", "time"] }
-tower-http = { version = "0.6", features = ["compression-gzip"] }
-webbrowser = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal", "sync", "time"], optional = true }
+tower-http = { version = "0.6", features = ["compression-gzip"], optional = true }
+webbrowser = { version = "1", optional = true }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
@@ -42,3 +59,9 @@ http-body-util = "0.1"
 [profile.release]
 lto = "thin"
 strip = true
+
+[profile.browser]
+inherits = "release"
+lto = true
+opt-level = "s"
+strip = "debuginfo"

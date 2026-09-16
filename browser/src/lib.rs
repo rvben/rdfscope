@@ -1,10 +1,4 @@
-// Both distributions use the same RDF parsing, indexing, queries, and traversal.
-#[path = "../../src/dataset.rs"]
-mod dataset;
-#[path = "../../src/exploration.rs"]
-mod exploration;
-
-use dataset::Dataset;
+use rdfscope::{Dataset, exploration, sample_dataset as sample};
 use serde_json::{Value, json};
 use wasm_bindgen::prelude::*;
 
@@ -13,16 +7,6 @@ const MAX_FILE_BYTES: usize = 10 * 1024 * 1024;
 #[wasm_bindgen]
 pub struct BrowserSession {
     dataset: Dataset,
-}
-
-fn sample() -> Result<Dataset, String> {
-    let mut ds = Dataset::parse(
-        include_bytes!("../../examples/research-library.trig"),
-        "research-library.trig",
-        "sample",
-    )?;
-    ds.summary.name = "The connected library".into();
-    Ok(ds)
 }
 
 #[wasm_bindgen]
@@ -91,22 +75,9 @@ impl BrowserSession {
             }
             "/search" => {
                 let request: exploration::SearchRequest = serde_json::from_value(p).map_err(|e| e.to_string())?;
-                request.validate()?;
-                let items = ds.search(&request.q, &request.class, request.offset + request.limit + 1);
-                let has_more = items.len() > request.offset + request.limit;
-                let items: Vec<_> = items.into_iter().skip(request.offset).take(request.limit).collect();
-                json!(exploration::SearchPage { next_offset: has_more.then_some(request.offset + items.len()), items, has_more, scope: "local", warnings: vec![] })
+                json!(ds.search_page(&request)?)
             }
-            "/inspect" => {
-                let id = string("id");
-                let mut detail = json!(ds.detail(id)?);
-                let properties: Vec<_> = ds.statements.iter().filter(|s| s.subject == id && (s.object.kind == "literal" || s.predicate == dataset::RDF_TYPE)).collect();
-                detail["outgoing"] = json!(properties.iter().take(300).collect::<Vec<_>>());
-                detail["outgoing_total"] = json!(properties.len());
-                detail["properties_more"] = json!(properties.len() > 300);
-                detail["scope"] = json!("local");
-                detail
-            }
+            "/inspect" => json!(ds.inspect(string("id"))?),
             "/query" => {
                 let query = string("query");
                 if query.len() > 100_000 { return Err("Query is too large (100 KB maximum).".into()); }

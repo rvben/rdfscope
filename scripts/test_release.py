@@ -104,6 +104,9 @@ class SourcePackageTests(unittest.TestCase):
             [
                 "Cargo.lock",
                 "src/main.rs",
+                "src/lib.rs",
+                "src/dataset.rs",
+                "src/exploration.rs",
                 "build.rs",
                 "LICENSE",
                 "README.md",
@@ -136,6 +139,28 @@ class SourcePackageTests(unittest.TestCase):
         del files["web/dist/THIRD_PARTY_LICENSES.txt"]
         with self.assertRaisesRegex(ValueError, "Source package missing"):
             check_source(self.package(files), "0.1.0")
+
+    def test_missing_shared_engine_fails(self):
+        for name in ["src/lib.rs", "src/dataset.rs", "src/exploration.rs"]:
+            with self.subTest(name=name):
+                files = self.files()
+                del files[name]
+                with self.assertRaisesRegex(ValueError, "Source package missing"):
+                    check_source(self.package(files), "0.1.0")
+
+    def test_browser_artifacts_are_excluded_from_native_packages(self):
+        for name in [
+            "browser/src/lib.rs",
+            "web/wasm/rdfscope_browser_bg.wasm",
+            "web/dist-browser/index.html",
+        ]:
+            with (
+                self.subTest(name=name),
+                self.assertRaisesRegex(ValueError, "Browser build files packaged"),
+            ):
+                check_source(
+                    self.package(dict(self.files(), **{name: "browser"})), "0.1.0"
+                )
 
     def test_private_workspaces_and_designs_are_rejected(self):
         for name in [

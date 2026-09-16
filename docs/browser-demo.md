@@ -6,10 +6,19 @@ There is no hosted graph database, upload API, shared dataset, account, or runti
 backend. Local files stay in the browser. The deployed content security policy
 allows network requests only to the site's own origin.
 
-The browser crate reuses `src/dataset.rs` and `src/exploration.rs` directly. The
-React interface selects a browser transport at build time; normal builds retain
-the localhost HTTP transport. Browser assets have their own output directory and
-are never embedded into the native executable.
+Both editions depend on the shared library in `src/lib.rs`. It owns parsing,
+indexing, SPARQL, search pagination, property inspection, and graph traversal.
+The browser adapter uses a normal Cargo dependency with default features disabled;
+the `native` feature keeps the HTTP server, endpoint client, and CLI dependencies
+out of the browser engine. The Cargo workspace shares one lockfile. The library
+ships in the existing `rdfscope` package, with no separate core crate to publish.
+
+The React interface selects a browser transport at build time; normal builds
+retain the localhost HTTP transport. Browser assets have their own output
+directory and are never embedded into the native executable. The browser build
+uses its own optimized Cargo profile; the default build still targets the native
+application. `make core-check` tests the engine without native features or UI
+assets, and both CI workflows run it.
 
 ## What visitors can do
 

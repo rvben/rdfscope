@@ -1,4 +1,4 @@
-use crate::dataset::{Dataset, Edge, Graph, RDF_TYPE, Resource, Result, Statement, short};
+use crate::dataset::{Dataset, Detail, Edge, Graph, RDF_TYPE, Resource, Result, Statement, short};
 use oxigraph::model::NamedNode;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -111,6 +111,14 @@ pub struct SearchPage {
     pub warnings: Vec<String>,
 }
 
+#[derive(Serialize)]
+pub struct Inspection {
+    #[serde(flatten)]
+    pub detail: Detail,
+    pub properties_more: bool,
+    pub scope: &'static str,
+}
+
 pub fn page_graph(ds: &Dataset, center: &str, statements: &[Statement]) -> Graph {
     let mut ids = BTreeSet::from([center.to_owned()]);
     let edges = statements
@@ -144,6 +152,39 @@ pub fn page_graph(ds: &Dataset, center: &str, statements: &[Statement]) -> Graph
     }
 }
 impl Dataset {
+    pub fn search_page(&self, p: &SearchRequest) -> Result<SearchPage> {
+        p.validate()?;
+        let matches = self.search(&p.q, &p.class, p.offset + p.limit + 1);
+        let has_more = matches.len() > p.offset + p.limit;
+        let items: Vec<_> = matches.into_iter().skip(p.offset).take(p.limit).collect();
+        Ok(SearchPage {
+            next_offset: has_more.then_some(p.offset + items.len()),
+            items,
+            has_more,
+            scope: "local",
+            warnings: vec![],
+        })
+    }
+
+    pub fn inspect(&self, id: &str) -> Result<Inspection> {
+        let mut detail = self.detail(id)?;
+        let properties = self
+            .statements
+            .iter()
+            .filter(|s| s.subject == id && (s.object.kind == "literal" || s.predicate == RDF_TYPE));
+        detail.outgoing_total = properties.clone().count();
+        detail.outgoing = properties.take(300).cloned().collect();
+        Ok(Inspection {
+            properties_more: detail.outgoing_total > detail.outgoing.len(),
+            detail,
+            scope: if self.summary.sampled {
+                "cache"
+            } else {
+                "local"
+            },
+        })
+    }
+
     pub fn connection_page(&self, p: &PageRequest) -> Result<Page> {
         p.validate()?;
         if !self.resources.contains_key(&p.id) {
@@ -232,6 +273,81 @@ impl Dataset {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn search_pages_cover_matches_and_reject_invalid_requests() {
+        let ds = Dataset::parse(
+            b"@prefix e: <https://example/> . e:a e:p \"one\" . e:b e:p \"two\" . e:c e:p \"three\" .",
+            "search.ttl",
+            "file",
+        )
+        .unwrap();
+        let mut request = SearchRequest {
+            q: String::new(),
+            class: String::new(),
+            offset: 0,
+            limit: 2,
+        };
+        let mut seen = BTreeSet::new();
+        loop {
+            let page = ds.search_page(&request).unwrap();
+            assert!(page.items.len() <= 2);
+            assert_eq!(page.has_more, page.next_offset.is_some());
+            for item in page.items {
+                assert!(seen.insert(item.id));
+            }
+            match page.next_offset {
+                Some(offset) => request.offset = offset,
+                None => break,
+            }
+        }
+        assert_eq!(seen, ds.resources.keys().cloned().collect());
+        request.offset = 100;
+        let page = ds.search_page(&request).unwrap();
+        assert!(page.items.is_empty());
+        assert!(!page.has_more);
+        request.limit = 0;
+        assert!(ds.search_page(&request).is_err());
+        request.limit = 2;
+        request.class = "not an IRI".into();
+        assert!(ds.search_page(&request).is_err());
+    }
+
+    #[test]
+    fn inspection_preserves_terms_and_bounds_properties_in_both_scopes() {
+        let mut rdf = String::from(
+            "@prefix e: <https://example/> . e:g { e:s a e:Thing; e:name \"Name\"@en; e:knows e:other . e:other e:knows e:s . }",
+        );
+        let mut ds = Dataset::parse(rdf.as_bytes(), "inspect.trig", "file").unwrap();
+        let inspection = ds.inspect("https://example/s").unwrap();
+        assert_eq!(inspection.detail.outgoing_total, 2);
+        assert_eq!(inspection.detail.incoming_total, 1);
+        assert!(!inspection.properties_more);
+        // The flattened wire contract must remain compatible with both UIs.
+        let json = serde_json::to_value(inspection).unwrap();
+        assert_eq!(json["resource"]["id"], "https://example/s");
+        assert_eq!(json["scope"], "local");
+        assert!(
+            json["outgoing"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|s| { s["object"]["language"] == "en" && s["graph"] == "https://example/g" })
+        );
+
+        for n in 0..301 {
+            rdf.push_str(&format!("e:s e:value \"{n}\" ."));
+        }
+        ds = Dataset::parse(rdf.as_bytes(), "inspect.trig", "file").unwrap();
+        ds.summary.sampled = true;
+        let inspection = ds.inspect("https://example/s").unwrap();
+        assert_eq!(inspection.detail.outgoing.len(), 300);
+        assert_eq!(inspection.detail.outgoing_total, 303);
+        assert!(inspection.properties_more);
+        assert_eq!(inspection.scope, "cache");
+        assert!(ds.inspect("https://example/missing").is_err());
+    }
+
     #[test]
     fn pages_cover_large_neighborhood_and_preserve_quad_identity() {
         let mut rdf = String::from("@prefix e: <https://example/> . e:s e:label \"literal\" .\n");

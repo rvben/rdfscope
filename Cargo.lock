@@ -839,24 +839,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "574b0cd5e90ee2ba03a66d0611fc9a09c9a0c28b2ecc2dc8a181dd31a53ca5d7"
 
 [[package]]
-name = "rdfscope"
-version = "0.1.0"
-dependencies = [
- "axum",
- "clap",
- "http-body-util",
- "oxigraph",
- "reqwest",
- "rust-embed",
- "serde",
- "serde_json",
- "tokio",
- "tower",
- "tower-http",
- "webbrowser",
-]
-
-[[package]]
 name = "libc"
 version = "0.2.189"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1389,6 +1371,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "caa0f4137e1c0a72f4c651489402276c8e8e1cf081f3b0ba156d2cbeef09e86a"
 dependencies = [
  "rand_core 0.10.1",
+]
+
+[[package]]
+name = "rdfscope"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "clap",
+ "http-body-util",
+ "oxigraph",
+ "reqwest",
+ "rust-embed",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower",
+ "tower-http",
+ "webbrowser",
 ]
 
 [[package]]

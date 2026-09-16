@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 pub const RDF_TYPE: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
-const LABELS: &[&str] = &[
+pub const LABELS: &[&str] = &[
     "http://www.w3.org/2000/01/rdf-schema#label",
     "http://www.w3.org/2004/02/skos/core#prefLabel",
     "https://schema.org/name",

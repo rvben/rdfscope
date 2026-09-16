@@ -1,0 +1,31 @@
+@prefix ex: <https://example.org/> .
+@prefix schema: <https://schema.org/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+ex:collection {
+  ex:knowledge-graphs a schema:CreativeWork ; rdfs:label "Knowledge graphs"@en ; schema:description "A sample research collection connecting people, publications, and ideas. Start here and follow a connection." ; schema:about ex:linked-data, ex:semantic-web, ex:graph-databases ; schema:hasPart ex:designing-data, ex:linked-data-book, ex:semantic-web-paper, ex:graph-thinking .
+  ex:designing-data a schema:Book ; rdfs:label "Designing Data-Intensive Applications" ; schema:author ex:martin ; schema:datePublished "2017"^^xsd:gYear ; schema:about ex:graph-databases, ex:distributed-systems ; schema:publisher ex:oreilly ; schema:isbn "9781449373320" .
+  ex:linked-data-book a schema:Book ; rdfs:label "Linked Data" ; schema:author ex:tom, ex:christian ; schema:datePublished "2011"^^xsd:gYear ; schema:about ex:linked-data, ex:rdf ; schema:publisher ex:morgan-claypool .
+  ex:semantic-web-paper a schema:ScholarlyArticle ; rdfs:label "The Semantic Web" ; schema:author ex:tim, ex:james, ex:ora ; schema:datePublished "2001"^^xsd:gYear ; schema:about ex:semantic-web, ex:linked-data ; schema:publisher ex:scientific-american .
+  ex:graph-thinking a schema:CreativeWork ; rdfs:label "A connected reading list" ; schema:description "An illustrative reading list for this sample workspace." ; schema:about ex:rdf, ex:sparql, ex:ontologies ; schema:citation ex:linked-data-book, ex:semantic-web-paper .
+  ex:tim a schema:Person ; rdfs:label "Tim Berners-Lee" ; schema:knows ex:james, ex:ora ; schema:affiliation ex:w3c ; schema:url <https://www.w3.org/People/Berners-Lee/> .
+  ex:james a schema:Person ; rdfs:label "James Hendler" ; schema:knows ex:tim, ex:ora .
+  ex:ora a schema:Person ; rdfs:label "Ora Lassila" ; schema:knows ex:tim .
+  ex:martin a schema:Person ; rdfs:label "Martin Kleppmann" ; schema:description "Author of Designing Data-Intensive Applications." .
+  ex:tom a schema:Person ; rdfs:label "Tom Heath" ; schema:knows ex:christian .
+  ex:christian a schema:Person ; rdfs:label "Christian Bizer" ; schema:knows ex:tom .
+  ex:w3c a schema:Organization ; rdfs:label "W3C" ; schema:url <https://www.w3.org/> .
+  ex:oreilly a schema:Organization ; rdfs:label "O’Reilly Media" .
+  ex:morgan-claypool a schema:Organization ; rdfs:label "Morgan & Claypool" .
+  ex:scientific-american a schema:Organization ; rdfs:label "Scientific American" .
+}
+ex:vocabulary {
+  ex:linked-data a schema:DefinedTerm ; rdfs:label "Linked data" ; schema:description "Structured data connected through identifiers and standard vocabularies." ; schema:isRelatedTo ex:rdf, ex:semantic-web, ex:sparql .
+  ex:semantic-web a schema:DefinedTerm ; rdfs:label "Semantic web" ; schema:isRelatedTo ex:ontologies, ex:rdf .
+  ex:graph-databases a schema:DefinedTerm ; rdfs:label "Graph databases" ; schema:isRelatedTo ex:sparql, ex:rdf .
+  ex:distributed-systems a schema:DefinedTerm ; rdfs:label "Distributed systems" ; schema:isRelatedTo ex:graph-databases .
+  ex:rdf a schema:DefinedTerm ; rdfs:label "RDF" ; schema:description "Resource Description Framework: statements expressed as subject, predicate, and object." ; schema:isRelatedTo ex:sparql, ex:ontologies .
+  ex:sparql a schema:DefinedTerm ; rdfs:label "SPARQL" ; schema:description "A query language for RDF." ; schema:isRelatedTo ex:rdf .
+  ex:ontologies a schema:DefinedTerm ; rdfs:label "Ontologies" ; schema:isRelatedTo ex:semantic-web .
+}

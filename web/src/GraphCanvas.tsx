@@ -1,3 +1,4 @@
+import { vscodeMode } from "./vscode";
 import { memo, useCallback, useEffect, useRef } from "react";
 import {
   ReactFlow,
@@ -173,7 +174,7 @@ export default function GraphCanvas({
   const latest = useRef({ selected, positions, graph });
   latest.current = { selected, positions, graph };
   const frameGraph = useCallback(() => {
-    if (window.matchMedia("(max-width: 700px)").matches) {
+    if (!vscodeMode && window.matchMedia("(max-width: 700px)").matches) {
       const state = latest.current;
       const id = state.graph.nodes.some((node) => node.id === state.selected)
         ? state.selected
@@ -206,7 +207,8 @@ export default function GraphCanvas({
     return () => clearTimeout(t);
   }, [fitKey, frameGraph]);
   useEffect(() => {
-    if (window.matchMedia("(max-width: 700px)").matches) frameGraph();
+    if (!vscodeMode && window.matchMedia("(max-width: 700px)").matches)
+      frameGraph();
   }, [selected, frameGraph]);
   useEffect(() => {
     if (!container.current) return;
@@ -230,22 +232,24 @@ export default function GraphCanvas({
       type: "relationship",
       label: labels || active ? e.label : undefined,
       style: {
-        stroke: active ? "#579984" : "#b4c4ba",
+        stroke: active ? "var(--edge-active, #579984)" : "var(--edge, #b4c4ba)",
         strokeWidth: active ? 1.7 : 1.15,
         opacity: selected && !active ? 0.55 : 1,
       },
       markerEnd: {
         type: MarkerType.ArrowClosed,
-        color: active ? "#579984" : "#b4c4ba",
+        color: active ? "var(--edge-active, #579984)" : "var(--edge, #b4c4ba)",
         width: 14,
         height: 14,
       },
       labelStyle: {
-        fill: active ? "#376b5b" : "#65737b",
+        fill: active
+          ? "var(--edge-label-active, #376b5b)"
+          : "var(--edge-label, #65737b)",
         fontSize: 11,
         fontWeight: active ? 500 : 400,
       },
-      labelBgStyle: { fill: "#f8faf9", fillOpacity: 0.96 },
+      labelBgStyle: { fill: "var(--canvas, #f8faf9)", fillOpacity: 0.96 },
       labelBgPadding: [5, 3],
       labelBgBorderRadius: 3,
       interactionWidth: 12,
@@ -268,7 +272,7 @@ export default function GraphCanvas({
         onNodeDragStop={(_, n) => onPosition(n.id, n.position)}
         minZoom={0.15}
         maxZoom={2}
-        fitView={!window.matchMedia("(max-width: 700px)").matches}
+        fitView={vscodeMode || !window.matchMedia("(max-width: 700px)").matches}
         fitViewOptions={{ padding: 0.2, maxZoom: 1.1 }}
         nodesConnectable={false}
         deleteKeyCode={null}
@@ -281,7 +285,7 @@ export default function GraphCanvas({
           variant={BackgroundVariant.Dots}
           gap={24}
           size={1}
-          color="#dce3df"
+          color="var(--graph-dot, #dce3df)"
         />
         {minimap && (
           <MiniMap
@@ -289,7 +293,7 @@ export default function GraphCanvas({
               palette[category((n.data as EntityData).resource)].color
             }
             nodeStrokeWidth={0}
-            maskColor="rgba(248,250,249,.75)"
+            maskColor="var(--minimap-mask, rgba(248,250,249,.75))"
             pannable
             zoomable
           />

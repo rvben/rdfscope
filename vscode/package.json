@@ -1,0 +1,127 @@
+{
+  "name": "rdfscope",
+  "displayName": "RDFscope \u2014 RDF Explorer",
+  "description": "Browse Turtle and RDF files as interactive graphs, inspect RDF terms, and query with SPARQL.",
+  "version": "0.1.0",
+  "publisher": "rvben",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rvben/rdfscope"
+  },
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "keywords": [
+    "rdf",
+    "turtle",
+    "ttl",
+    "sparql",
+    "linked-data"
+  ],
+  "main": "./extension.cjs",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": {
+      "supported": true
+    }
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test test/*.test.cjs",
+    "vscode:prepublish": "npm run build",
+    "test:integration": "node test/integration.mjs"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "rdfscope.open",
+        "title": "RDFscope: Explore RDF File",
+        "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "rdfscope.openBeside",
+        "title": "RDFscope: Explore RDF File to the Side",
+        "icon": "$(split-horizontal)"
+      },
+      {
+        "command": "rdfscope.reload",
+        "title": "RDFscope: Reload from Source",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "rdfscope.source",
+        "title": "RDFscope: Open Source",
+        "icon": "$(go-to-file)"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "rdfscope.explorer",
+        "displayName": "RDFscope Graph Explorer",
+        "selector": [
+          {
+            "filenamePattern": "*.ttl"
+          },
+          {
+            "filenamePattern": "*.rdf"
+          },
+          {
+            "filenamePattern": "*.trig"
+          },
+          {
+            "filenamePattern": "*.nt"
+          },
+          {
+            "filenamePattern": "*.nq"
+          },
+          {
+            "filenamePattern": "*.jsonld"
+          },
+          {
+            "filenamePattern": "*.rdfscope.json"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "rdfscope.open",
+          "when": "resourceExtname =~ /\\.(ttl|rdf|trig|nt|nq|jsonld)$/ || resourceFilename =~ /\\.rdfscope\\.json$/",
+          "group": "navigation"
+        },
+        {
+          "command": "rdfscope.openBeside",
+          "when": "resourceExtname =~ /\\.(ttl|rdf|trig|nt|nq|jsonld)$/ || resourceFilename =~ /\\.rdfscope\\.json$/",
+          "group": "navigation"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "rdfscope.open",
+          "when": "activeCustomEditorId != rdfscope.explorer && resourceExtname =~ /\\.(ttl|rdf|trig|nt|nq|jsonld)$/",
+          "group": "navigation"
+        },
+        {
+          "command": "rdfscope.reload",
+          "when": "activeCustomEditorId == rdfscope.explorer",
+          "group": "navigation"
+        },
+        {
+          "command": "rdfscope.source",
+          "when": "activeCustomEditorId == rdfscope.explorer",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "preview": true
+}

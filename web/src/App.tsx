@@ -1,3 +1,5 @@
+import type { SourceStatus } from "./vscode";
+import { connectVscode, vscodeMode, vscodeAction } from "./vscode";
 import { browserMode, fileLimitMb } from "#transport";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useReactFlow } from "@xyflow/react";
@@ -28,6 +30,7 @@ import {
   PanelRight,
   Command,
   CircleHelp,
+  RefreshCw,
 } from "lucide-react";
 import type {
   Detail,
@@ -133,6 +136,7 @@ function validateWorkspace(value: unknown): Workspace {
 }
 
 export default function App() {
+  const [sourceStatus, setSourceStatus] = useState<SourceStatus | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null),
     [graph, setGraph] = useState<Graph>(emptyGraph),
     [positions, setPositions] = useState<Record<string, Position>>({}),
@@ -162,13 +166,23 @@ export default function App() {
   const [notice, setNotice] = useState<{ text: string; error: boolean } | null>(
       null,
     ),
-    [sidebar, setSidebar] = useState(false),
+    [sidebar, setSidebar] = useState(vscodeMode && window.innerWidth >= 900),
     [inspector, setInspector] = useState(true),
     [filters, setFilters] = useState(false),
     [showClasses, setShowClasses] = useState(true),
     [history, setHistory] = useState<Snapshot[]>([]),
     [help, setHelp] = useState(false),
     [dragging, setDragging] = useState(false);
+  useEffect(() => {
+    if (!vscodeMode) return;
+    const narrow = window.matchMedia("(max-width: 900px)");
+    const adapt = () => {
+      if (narrow.matches) setSidebar(false);
+    };
+    adapt();
+    narrow.addEventListener("change", adapt);
+    return () => narrow.removeEventListener("change", adapt);
+  }, []);
   const [searchScope, setSearchScope] = useState("loaded"),
     [searchOffset, setSearchOffset] = useState(0),
     [searchMore, setSearchMore] = useState(false),
@@ -235,6 +249,7 @@ export default function App() {
   const reset = useCallback(async () => {
     epoch.current++;
     detailRequest.current++;
+    if (vscodeMode) setInspector(false);
     const s = await api<Summary>("/summary");
     setSearchScope(s.source === "endpoint" ? "endpoint" : "loaded");
     setSearchOffset(0);
@@ -243,7 +258,9 @@ export default function App() {
         ? "/graph?center=https%3A%2F%2Fexample.org%2Fknowledge-graphs&limit=20"
         : s.source === "endpoint"
           ? "/graph?limit=12"
-          : "/graph?limit=26",
+          : vscodeMode
+            ? "/graph?limit=12"
+            : "/graph?limit=26",
     );
     setSummary(s);
     setGraph(g);
@@ -263,7 +280,10 @@ export default function App() {
       g.nodes.find((n) => n.id === "https://example.org/knowledge-graphs") ||
       [...g.nodes].sort((a, b) => b.degree - a.degree)[0];
     if (first)
-      void select(first.id, !window.matchMedia("(max-width:980px)").matches);
+      void select(
+        first.id,
+        !vscodeMode && !window.matchMedia("(max-width:980px)").matches,
+      );
     else {
       setSelected(null);
       setDetail(null);
@@ -512,6 +532,16 @@ export default function App() {
       setBusy(false);
     }
   };
+  const hostImport = useRef(importFile);
+  hostImport.current = importFile;
+  useEffect(() => {
+    if (initial) return;
+    return connectVscode(
+      (file) => hostImport.current(file),
+      notify,
+      setSourceStatus,
+    );
+  }, [initial, notify]);
   const connect = async (url: string, token: string, seed: string) => {
     setBusy(true);
     try {
@@ -550,7 +580,8 @@ export default function App() {
         minimap,
       };
       download("workspace.rdfscope.json", JSON.stringify(saved));
-      notify("Workspace saved with its data, layout, and query.");
+      if (!vscodeMode)
+        notify("Workspace saved with its data, layout, and query.");
     } catch (e) {
       fail(e);
     }
@@ -613,9 +644,13 @@ export default function App() {
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${w} ${h}" width="${w}" height="${h}" font-family="system-ui,sans-serif"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#9eafa7"/></marker></defs><rect x="${minX}" y="${minY}" width="${w}" height="${h}" fill="#f8faf9"/>${edges}${nodes}</svg>`,
       "image/svg+xml",
     );
-    notify("Graph exported as SVG.");
+    if (!vscodeMode) notify("Graph exported as SVG.");
   };
   const openSource = (tab: "file" | "endpoint") => {
+    if (vscodeMode) {
+      vscodeAction("open");
+      return;
+    }
     setOpenTab(tab);
     setOpen(true);
   };
@@ -624,6 +659,7 @@ export default function App() {
       if (e.key === "Escape") {
         setSidebar(false);
         setHelp(false);
+        if (vscodeMode) setInspector(false);
       }
       const editing = (e.target as HTMLElement).closest(
         "input,textarea,select,[contenteditable],dialog[open]",
@@ -652,7 +688,7 @@ export default function App() {
   const hiddenFilters = !!(classFilter || predicate || namedGraph);
   return (
     <div
-      className={`app ${inspector ? "with-inspector" : ""} ${sidebar ? "sidebar-open" : ""}`}
+      className={`app ${vscodeMode ? "vscode-app" : ""} ${inspector ? "with-inspector" : ""} ${sidebar ? "sidebar-open" : ""}`}
       onDragEnter={(e) => {
         if (e.dataTransfer.types.includes("Files")) {
           e.preventDefault();
@@ -671,19 +707,45 @@ export default function App() {
         dragDepth.current = 0;
         setDragging(false);
         const file = e.dataTransfer.files[0];
-        if (file && !busy) void importFile(file).catch(fail);
+        if (file && !busy) {
+          if (vscodeMode) {
+            notify("Use Open file to explore another RDF file in its own tab.");
+            return;
+          }
+          void importFile(file).catch(fail);
+        }
       }}
     >
       <aside className="sidebar" aria-label="Dataset browser">
-        <a className="brand" href="/" aria-label="RDFscope home">
-          <span className="brand-mark">
-            <Network size={23} strokeWidth={1.6} />
-          </span>
-          <span>
-            RDFscope
-            <small>{browserMode ? "Browser edition" : "RDF explorer"}</small>
-          </span>
-        </a>
+        {vscodeMode && (
+          <div className="vscode-sidebar-heading">
+            <strong>Resources</strong>
+            <button
+              className="icon-button"
+              aria-label="Close resource browser"
+              onClick={() => setSidebar(false)}
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
+        {!vscodeMode && (
+          <a className="brand" href="/" aria-label="RDFscope home">
+            <span className="brand-mark">
+              <Network size={23} strokeWidth={1.6} />
+            </span>
+            <span>
+              RDFscope
+              <small>
+                {vscodeMode
+                  ? "VS Code edition"
+                  : browserMode
+                    ? "Browser edition"
+                    : "RDF explorer"}
+              </small>
+            </span>
+          </a>
+        )}
         <div className="source-block">
           <div className="source-label">
             <span>
@@ -912,7 +974,11 @@ export default function App() {
         <div className="sidebar-footer">
           <span>
             <span className="status-dot" />
-            {browserMode ? "Data stays in this tab" : "Running locally"}
+            {vscodeMode
+              ? "Data stays in VS Code"
+              : browserMode
+                ? "Data stays in this tab"
+                : "Running locally"}
           </span>
           <button
             className="icon-button"
@@ -936,7 +1002,10 @@ export default function App() {
           <div className="workspace-title">
             <button
               className="icon-button sidebar-toggle"
-              aria-label="Open resource browser"
+              aria-label={
+                sidebar ? "Hide resource browser" : "Open resource browser"
+              }
+              aria-expanded={sidebar}
               onClick={() => setSidebar(!sidebar)}
             >
               <PanelLeft size={19} />
@@ -945,7 +1014,11 @@ export default function App() {
               <Network size={18} />
             </span>
             <div>
-              <h1>{summary?.name || "Your graph workspace"}</h1>
+              <h1 title={summary?.name}>
+                {vscodeMode
+                  ? sourceStatus?.name || "Opening RDF file…"
+                  : summary?.name || "Your graph workspace"}
+              </h1>
               <p>
                 {summary?.sampled
                   ? "Explore a live endpoint, one neighborhood at a time."
@@ -956,7 +1029,27 @@ export default function App() {
             </div>
           </div>
           <div className="topbar-actions">
-            {browserMode ? (
+            {vscodeMode ? (
+              <>
+                <button
+                  className="icon-button"
+                  title="Open source text"
+                  aria-label="Open source text"
+                  onClick={() => vscodeAction("source")}
+                >
+                  <FileCode2 size={16} />
+                </button>
+                <button
+                  className="icon-button"
+                  title="Reload graph from source (resets canvas)"
+                  aria-label="Reload graph"
+                  disabled={busy}
+                  onClick={() => vscodeAction("reload")}
+                >
+                  <RefreshCw size={16} />
+                </button>
+              </>
+            ) : browserMode ? (
               <a
                 className="button quiet connect-button"
                 href="https://github.com/rvben/rdfscope#install"
@@ -1035,6 +1128,24 @@ export default function App() {
             </details>
           </div>
         </header>
+        {vscodeMode && sourceStatus?.changed && (
+          <div className="source-change-banner" role="status">
+            <RefreshCw size={15} />
+            <div>
+              <strong>
+                Source changed{sourceStatus.dirty ? " · unsaved edits" : ""}
+              </strong>
+              <span>Reload to apply edits. The canvas will reset.</span>
+            </div>
+            <button
+              className="button"
+              disabled={busy}
+              onClick={() => vscodeAction("reload")}
+            >
+              Reload graph
+            </button>
+          </div>
+        )}
         <div className="viewbar">
           <nav className="view-tabs" aria-label="Workspace view">
             {(
@@ -1053,6 +1164,10 @@ export default function App() {
                   aria-current={view === key ? "page" : undefined}
                   onClick={() => {
                     setView(key);
+                    if (vscodeMode) {
+                      setInspector(false);
+                      setSidebar(false);
+                    }
                     if (key === "graph") setFitKey((k) => k + 1);
                   }}
                 >
@@ -1148,7 +1263,19 @@ export default function App() {
         )}
         <div className="main-content">
           <div className="view-content">
-            {initial ? (
+            {vscodeMode && sourceStatus?.error ? (
+              <div className="graph-empty" role="alert">
+                <AlertCircle size={28} />
+                <h2>Could not open this RDF file</h2>
+                <p>{sourceStatus.error}</p>
+                <button
+                  className="button"
+                  onClick={() => vscodeAction("reload")}
+                >
+                  Retry loading file
+                </button>
+              </div>
+            ) : initial || (vscodeMode && !sourceStatus) ? (
               <div className="loading-view">
                 <LoaderCircle className="spin" size={25} />
                 <p>Opening your graph…</p>
@@ -1326,7 +1453,9 @@ export default function App() {
                 busy={queryBusy}
                 result={queryResult}
                 error={queryError}
-                onSelect={(id) => void explore(id)}
+                onSelect={(id) =>
+                  vscodeMode ? void select(id) : void explore(id)
+                }
                 remote={summary?.source === "endpoint"}
               />
             )}

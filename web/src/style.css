@@ -2510,3 +2510,457 @@ tr.selected td {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* The editor owns the theme and available space inside VS Code. */
+body.rdfscope-vscode {
+  --ink: var(--vscode-editor-foreground, #283c34);
+  --muted: var(--vscode-descriptionForeground, #69776f);
+  --green: var(--vscode-button-background, #216d56);
+  --green-dark: var(--vscode-button-hoverBackground, #19533f);
+  --green-light: var(--vscode-list-activeSelectionBackground, #eaf3ed);
+  --line: var(--vscode-contrastBorder, var(--vscode-panel-border, #e2e8e3));
+  --surface: var(--vscode-editor-background, #fff);
+  --canvas: var(--vscode-editor-background, #f8faf9);
+  --hover: var(--vscode-list-hoverBackground, #f1f5f0);
+  --focus: var(--vscode-focusBorder, #216d56);
+  --danger: var(--vscode-errorForeground, #a33932);
+  --edge: color-mix(in srgb, var(--ink) 35%, var(--canvas));
+  --edge-active: var(--vscode-focusBorder, #579984);
+  --edge-label: var(--muted);
+  --edge-label-active: var(--ink);
+  --graph-dot: color-mix(in srgb, var(--ink) 15%, var(--canvas));
+  --minimap-mask: color-mix(in srgb, var(--canvas) 75%, transparent);
+  color: var(--ink);
+  background: var(--surface);
+  font-family: var(
+    --vscode-font-family,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif
+  );
+  padding: 0;
+}
+body.rdfscope-vscode.vscode-dark,
+body.rdfscope-vscode.vscode-high-contrast {
+  color-scheme: dark;
+}
+.rdfscope-vscode .app {
+  min-height: 0;
+  grid-template-columns: 0 minmax(0, 1fr);
+}
+.rdfscope-vscode .sidebar-open {
+  grid-template-columns: 220px minmax(0, 1fr);
+}
+.rdfscope-vscode .sidebar {
+  width: 220px;
+  visibility: hidden;
+  overflow: hidden;
+  background: var(--surface);
+}
+.rdfscope-vscode .sidebar-open .sidebar {
+  visibility: visible;
+}
+.vscode-sidebar-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  min-height: 44px;
+  border-bottom: 1px solid var(--line);
+}
+.vscode-sidebar-heading strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+.rdfscope-vscode .workspace,
+.rdfscope-vscode .query-panel,
+.rdfscope-vscode .resource-table,
+.rdfscope-vscode .inspector,
+.rdfscope-vscode .menu-popover,
+.rdfscope-vscode .canvas-controls,
+.rdfscope-vscode .open-dialog {
+  background: var(--surface);
+  color: var(--ink);
+}
+.rdfscope-vscode .topbar {
+  height: 44px;
+  padding: 0 12px;
+  gap: 8px;
+}
+.rdfscope-vscode .workspace-title {
+  gap: 6px;
+}
+.rdfscope-vscode .workspace-title h1 {
+  font-size: 12px;
+  letter-spacing: normal;
+  max-width: none;
+}
+.rdfscope-vscode .workspace-title p,
+.rdfscope-vscode .workspace-symbol {
+  display: none;
+}
+.rdfscope-vscode .sidebar-toggle {
+  display: flex;
+}
+.rdfscope-vscode .topbar-actions {
+  gap: 3px;
+}
+.rdfscope-vscode .topbar-actions .button {
+  min-height: 28px;
+  padding: 5px 7px;
+}
+.rdfscope-vscode .topbar-actions .button > span {
+  display: none;
+}
+.rdfscope-vscode .viewbar {
+  height: 38px;
+  padding: 0 12px;
+  gap: 8px;
+}
+.rdfscope-vscode .view-tabs {
+  gap: 16px;
+}
+.rdfscope-vscode .view-tabs button {
+  font-size: 12px;
+}
+.rdfscope-vscode .view-actions {
+  gap: 6px;
+}
+.rdfscope-vscode .view-actions .text-button span {
+  display: none;
+}
+.rdfscope-vscode .main-content {
+  position: relative;
+  flex-direction: row;
+}
+.rdfscope-vscode .view-content {
+  min-height: 0;
+}
+.rdfscope-vscode .inspector {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: min(340px, calc(100% - 32px));
+  height: auto;
+  max-height: none;
+  min-height: 0;
+  border-top: 0;
+  border-left: 1px solid var(--line);
+  box-shadow: -6px 0 24px rgba(0, 0, 0, 0.18);
+  z-index: 40;
+}
+.rdfscope-vscode .inspector .mobile-only {
+  display: flex;
+}
+.rdfscope-vscode .inspector .panel-heading {
+  height: 38px;
+}
+.rdfscope-vscode .inspector .resource-heading {
+  padding: 16px;
+}
+.rdfscope-vscode .resource-heading h2 {
+  font-size: 18px;
+}
+.rdfscope-vscode .statusbar {
+  height: 24px;
+  padding: 0 12px;
+}
+.rdfscope-vscode .statusbar > span {
+  display: none;
+}
+.rdfscope-vscode .with-inspector .query-panel,
+.rdfscope-vscode .with-inspector .resource-table {
+  padding-bottom: 20px;
+}
+.rdfscope-vscode .query-panel {
+  padding: 0 16px 24px;
+}
+.query-commandbar {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 -16px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.query-commandbar h2 {
+  font-size: 13px;
+  font-weight: 600;
+}
+.query-commandbar > div > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.query-commandbar .button {
+  flex-shrink: 0;
+  min-height: 30px;
+}
+.rdfscope-vscode .query-examples {
+  margin: 12px 0;
+}
+.rdfscope-vscode .query-editor {
+  min-height: 120px;
+  height: clamp(120px, 32dvh, 260px);
+  background: var(--vscode-input-background, var(--surface));
+  border-color: var(--vscode-input-border, var(--line));
+  border-radius: 4px;
+}
+.rdfscope-vscode .query-editor textarea {
+  height: 100%;
+  min-height: 0;
+  resize: none;
+  padding: 12px;
+  font-family: var(
+    --vscode-editor-font-family,
+    "SFMono-Regular",
+    Consolas,
+    monospace
+  );
+  font-size: var(--vscode-editor-font-size, 12px);
+  color: var(--ink);
+  caret-color: var(--ink);
+}
+.rdfscope-vscode .line-numbers {
+  overflow: hidden;
+  min-width: 34px;
+  padding: 12px 8px;
+  font-family: var(
+    --vscode-editor-font-family,
+    "SFMono-Regular",
+    Consolas,
+    monospace
+  );
+  font-size: var(--vscode-editor-font-size, 12px);
+  color: var(--vscode-editorLineNumber-foreground, var(--muted));
+}
+.rdfscope-vscode .query-empty {
+  margin: 24px auto;
+}
+.rdfscope-vscode .query-empty h3 {
+  font-size: 14px;
+}
+.rdfscope-vscode .entity-node,
+.rdfscope-vscode .search-field,
+.rdfscope-vscode kbd {
+  background: var(--surface);
+  border-color: var(--line);
+}
+.rdfscope-vscode .entity-copy > strong {
+  color: var(--ink);
+}
+.rdfscope-vscode .entity-icon {
+  color: color-mix(in srgb, var(--node-color) 72%, var(--ink));
+  background: color-mix(in srgb, var(--node-color) 15%, var(--surface));
+}
+.rdfscope-vscode .entity-node.selected {
+  border-color: var(--focus);
+  outline-color: var(--focus);
+}
+.rdfscope-vscode .button,
+.rdfscope-vscode .query-examples > button,
+.rdfscope-vscode .filterbar select {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--line);
+}
+.rdfscope-vscode .button.primary {
+  background: var(--green);
+  color: var(--vscode-button-foreground, #fff);
+  border-color: transparent;
+}
+.rdfscope-vscode .button.primary:hover {
+  background: var(--green-dark);
+}
+.rdfscope-vscode .icon-button,
+.rdfscope-vscode .text-button,
+.rdfscope-vscode .term-link,
+.rdfscope-vscode .view-tabs button,
+.rdfscope-vscode .connection strong,
+.rdfscope-vscode .resource-row strong {
+  color: var(--ink);
+}
+.rdfscope-vscode .view-tabs .active,
+.rdfscope-vscode .inspector-tabs .active {
+  color: var(--vscode-textLink-foreground, var(--green));
+}
+.rdfscope-vscode .resource-row:hover,
+.rdfscope-vscode .resource-row.active,
+.rdfscope-vscode .class-list button:hover,
+.rdfscope-vscode .class-list button.active,
+.rdfscope-vscode .icon-button:hover,
+.rdfscope-vscode .icon-button.active,
+.rdfscope-vscode .menu-popover button:hover,
+.rdfscope-vscode .query-examples button:hover,
+.rdfscope-vscode tr.selected,
+.rdfscope-vscode tr:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+.rdfscope-vscode .source-meta,
+.rdfscope-vscode .source-label,
+.rdfscope-vscode .resource-row small,
+.rdfscope-vscode .class-list button,
+.rdfscope-vscode .section-heading,
+.rdfscope-vscode .sidebar-footer,
+.rdfscope-vscode .entity-copy > small,
+.rdfscope-vscode .canvas-heading,
+.rdfscope-vscode .canvas-hint,
+.rdfscope-vscode .graph-legend > span,
+.rdfscope-vscode .query-examples,
+.rdfscope-vscode .query-empty,
+.rdfscope-vscode .query-empty p,
+.rdfscope-vscode .panel-heading,
+.rdfscope-vscode .resource-description,
+.rdfscope-vscode .iri-row,
+.rdfscope-vscode .statusbar,
+.rdfscope-vscode .property-name,
+.rdfscope-vscode .connection small,
+.rdfscope-vscode .inspector-tabs button {
+  color: var(--muted);
+}
+.rdfscope-vscode .source-block,
+.rdfscope-vscode .filterbar,
+.rdfscope-vscode .line-numbers,
+.rdfscope-vscode .panel-heading,
+.rdfscope-vscode td,
+.rdfscope-vscode th {
+  border-color: var(--line);
+}
+.rdfscope-vscode .property-value,
+.rdfscope-vscode .literal-value,
+.rdfscope-vscode td,
+.rdfscope-vscode th {
+  color: var(--ink);
+}
+.rdfscope-vscode .source-block,
+.rdfscope-vscode .filterbar {
+  background: var(--surface);
+}
+.rdfscope-vscode .toast {
+  background: var(--vscode-notifications-background, var(--surface));
+  color: var(--vscode-notifications-foreground, var(--ink));
+  border-color: var(--line);
+  bottom: 34px;
+}
+.rdfscope-vscode .toast.error,
+.rdfscope-vscode .query-error {
+  color: var(--danger);
+  background: var(--surface);
+  border: 1px solid var(--danger);
+}
+.rdfscope-vscode :focus-visible {
+  outline-color: var(--focus);
+}
+.rdfscope-vscode ::selection {
+  background: var(--vscode-editor-selectionBackground, #d4eadd);
+  color: var(--ink);
+}
+.source-change-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.source-change-banner > svg {
+  flex-shrink: 0;
+  color: var(--vscode-editorWarning-foreground, #8d6e32);
+}
+.source-change-banner > div {
+  flex: 1;
+  min-width: 0;
+}
+.source-change-banner strong,
+.source-change-banner span {
+  display: block;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.source-change-banner span {
+  color: var(--muted);
+}
+.source-change-banner .button {
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 5px 8px;
+  min-height: 28px;
+}
+@media (max-width: 900px) {
+  .rdfscope-vscode .app,
+  .rdfscope-vscode .sidebar-open {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rdfscope-vscode .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(260px, calc(100vw - 40px));
+    transform: translateX(-100%);
+    z-index: 55;
+  }
+  .rdfscope-vscode .sidebar-open .sidebar {
+    transform: translateX(0);
+  }
+  .rdfscope-vscode .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(0, 0, 0, 0.25);
+  }
+}
+@media (max-width: 400px) {
+  .rdfscope-vscode .view-tabs {
+    gap: 10px;
+  }
+  .rdfscope-vscode .view-tabs button {
+    font-size: 11px;
+  }
+  .rdfscope-vscode .topbar-actions {
+    gap: 0;
+  }
+  .rdfscope-vscode .query-examples > span,
+  .rdfscope-vscode .topbar-actions .button.save-button > svg:last-child {
+    display: none;
+  }
+}
+.rdfscope-vscode input::placeholder,
+.rdfscope-vscode textarea::placeholder {
+  color: var(--vscode-input-placeholderForeground, var(--muted));
+}
+.rdfscope-vscode .search-field input,
+.rdfscope-vscode .search-field svg {
+  color: var(--ink);
+}
+.rdfscope-vscode .graph-legend {
+  display: none;
+}
+.rdfscope-vscode .with-inspector .canvas-controls {
+  display: flex;
+}
+.rdfscope-vscode .search-field:focus-within {
+  border-color: var(--focus);
+  box-shadow: none;
+}
+
+.rdfscope-vscode .query-empty h3,
+.rdfscope-vscode .result-heading > span {
+  color: var(--ink);
+}
+.rdfscope-vscode .result-heading small {
+  color: var(--muted);
+}
+.rdfscope-vscode .boolean-result {
+  color: var(--ink);
+  background: var(--hover);
+}

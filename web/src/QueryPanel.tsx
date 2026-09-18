@@ -1,3 +1,4 @@
+import { vscodeMode } from "./vscode";
 import {
   Play,
   Download,
@@ -65,17 +66,40 @@ export default function QueryPanel({
   onSelect,
   remote,
 }: Props) {
+  const runButton = (
+    <button
+      className="button primary"
+      disabled={busy || !query.trim()}
+      onClick={onRun}
+    >
+      {busy ? <LoaderCircle className="spin" size={15} /> : <Play size={14} />}{" "}
+      {busy ? "Running query…" : "Run query"}
+    </button>
+  );
   return (
     <section className="query-panel" aria-label="SPARQL query workspace">
-      <div className="query-heading">
-        <div>
-          <Terminal size={19} />
-          <h2>Ask your graph</h2>
+      {vscodeMode && (
+        <div className="query-commandbar">
+          <div>
+            <h2>SPARQL query</h2>
+            <span>
+              Read-only <kbd>⌘ / Ctrl ↵</kbd>
+            </span>
+          </div>
+          {runButton}
         </div>
-        <span>
-          {remote ? "Queries run on your endpoint" : "SPARQL · Local dataset"}
-        </span>
-      </div>
+      )}
+      {!vscodeMode && (
+        <div className="query-heading">
+          <div>
+            <Terminal size={19} />
+            <h2>Ask your graph</h2>
+          </div>
+          <span>
+            {remote ? "Queries run on your endpoint" : "SPARQL · Local dataset"}
+          </span>
+        </div>
+      )}
       <div className="query-examples">
         <span>Start with</span>
         {templates.map((t) => (
@@ -95,6 +119,11 @@ export default function QueryPanel({
           spellCheck={false}
           value={query}
           onChange={(e) => onQuery(e.target.value)}
+          onScroll={(e) =>
+            e.currentTarget.previousElementSibling?.scrollTo({
+              top: e.currentTarget.scrollTop,
+            })
+          }
           onKeyDown={(e) => {
             if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
               e.preventDefault();
@@ -103,23 +132,14 @@ export default function QueryPanel({
           }}
         />
       </div>
-      <div className="query-actions">
-        <span>
-          Read-only queries <kbd>⌘ / Ctrl ↵</kbd>
-        </span>
-        <button
-          className="button primary"
-          disabled={busy || !query.trim()}
-          onClick={onRun}
-        >
-          {busy ? (
-            <LoaderCircle className="spin" size={15} />
-          ) : (
-            <Play size={14} />
-          )}{" "}
-          {busy ? "Running query…" : "Run query"}
-        </button>
-      </div>
+      {!vscodeMode && (
+        <div className="query-actions">
+          <span>
+            Read-only queries <kbd>⌘ / Ctrl ↵</kbd>
+          </span>
+          {runButton}
+        </div>
+      )}
       {error && (
         <div role="alert" className="query-error">
           <strong>Query could not run</strong>

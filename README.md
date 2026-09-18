@@ -83,6 +83,14 @@ Save a workspace before closing or reloading the tab.
 
 See [Build, test, and deploy the browser demo](docs/browser-demo.md).
 
+## VS Code extension
+
+Download the VSIX from the [VS Code preview release](https://github.com/rvben/rdfscope/releases/tag/vscode-v0.1.0)
+and use **Extensions → Install from VSIX**. Right-click a Turtle or RDF file to explore
+it in VS Code, inspect terms, and run SPARQL. The text editor remains the default;
+browsing does not modify your file.
+See [build and usage instructions](vscode/README.md).
+
 ## Build and run
 
 Development prerequisites: current stable Rust (tested with 1.98), Node.js 22.12 or newer, and npm.

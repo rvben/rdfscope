@@ -18,3 +18,8 @@ __pycache__/
 .wrangler/
 /web/test-results/
 /web/playwright-report/
+
+/web/dist-vscode/
+/vscode/media/
+/vscode/LICENSE
+/vscode/*.vsix

@@ -6,7 +6,7 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "#transport": fileURLToPath(
         new URL(
-          mode === "browser"
+          mode === "browser" || mode === "vscode"
             ? "./src/transport/browser.ts"
             : "./src/transport/native.ts",
           import.meta.url,
@@ -14,6 +14,7 @@ export default defineConfig(({ mode }) => ({
       ),
     },
   },
+  base: mode === "vscode" ? "./" : "/",
   plugins: [react()],
   server: {
     host: "127.0.0.1",
@@ -31,7 +32,13 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     chunkSizeWarningLimit: 650,
-    outDir: mode === "browser" ? "dist-browser" : "dist",
+    manifest: mode === "vscode",
+    outDir:
+      mode === "vscode"
+        ? "dist-vscode"
+        : mode === "browser"
+          ? "dist-browser"
+          : "dist",
   },
   worker: { format: "es" },
 }));

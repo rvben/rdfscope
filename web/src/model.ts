@@ -1,3 +1,4 @@
+import { saveToVscode } from "./vscode";
 import { request } from "#transport";
 export interface Term {
   kind: "uri" | "bnode" | "literal";
@@ -156,6 +157,7 @@ export function download(
   content: string,
   type = "application/json",
 ) {
+  if (saveToVscode(name, content)) return;
   const url = URL.createObjectURL(new Blob([content], { type }));
   const a = document.createElement("a");
   a.href = url;

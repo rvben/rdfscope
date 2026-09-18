@@ -46,6 +46,11 @@ jobs:
         run: cargo install wasm-pack --version 0.14.0 --locked
       - run: make browser-check browser
       - run: npm exec --prefix web -- playwright install --with-deps chromium --only-shell
+      - name: Check VS Code extension
+        run: |
+          npm --prefix vscode run build -- --reuse-engine
+          npm --prefix vscode test
+          npm --prefix vscode run test:integration
       - run: npm --prefix web run test:browser
       - name: Check Cloudflare deployment configuration
         run: npx --prefix web wrangler deploy --config wrangler.jsonc --dry-run

@@ -1,3 +1,5 @@
+import { createEngineWorker } from "./worker";
+
 export const browserMode = true;
 export const fileLimitMb = 10;
 
@@ -16,43 +18,48 @@ type Pending = {
 };
 
 class Engine {
-  private worker = new Worker(new URL("./engine.worker.ts", import.meta.url), {
-    type: "module",
-  });
+  private worker: Worker | undefined;
+  private ready: Promise<Worker>;
   private sequence = 0;
   private pending = new Map<number, Pending>();
   private stopped = false;
 
   constructor() {
-    this.worker.onmessage = ({
-      data,
-    }: MessageEvent<{ id: number; result: string; error?: string }>) => {
-      const pending = this.pending.get(data.id);
-      if (!pending) return;
-      this.pending.delete(data.id);
-      pending.cleanup();
-      if (data.error) pending.reject(new Error(data.error));
-      else pending.resolve(data.result);
-    };
-    this.worker.onerror = (event) => {
-      event.preventDefault();
-      this.stop(
-        new Error(
-          "The browser engine could not start. Reload the page, or try the installed app.",
-        ),
-      );
-    };
-    this.worker.onmessageerror = () =>
-      this.stop(
-        new Error(
-          "The browser engine could not read a response. Reload the page.",
-        ),
-      );
+    this.ready = createEngineWorker().then((worker) => {
+      this.worker = worker;
+      if (this.stopped) worker.terminate();
+      worker.onmessage = ({
+        data,
+      }: MessageEvent<{ id: number; result: string; error?: string }>) => {
+        const pending = this.pending.get(data.id);
+        if (!pending) return;
+        this.pending.delete(data.id);
+        pending.cleanup();
+        if (data.error) pending.reject(new Error(data.error));
+        else pending.resolve(data.result);
+      };
+      worker.onerror = (event) => {
+        event.preventDefault();
+        this.stop(
+          new Error(
+            "The browser engine could not start. Reload the page, or try the installed app.",
+          ),
+        );
+      };
+      worker.onmessageerror = () =>
+        this.stop(
+          new Error(
+            "The browser engine could not read a response. Reload the page.",
+          ),
+        );
+      return worker;
+    });
+    void this.ready.catch((error: Error) => this.stop(error));
   }
 
   stop(error = new Error("Browser operation cancelled.")) {
     this.stopped = true;
-    this.worker.terminate();
+    this.worker?.terminate();
     for (const pending of this.pending.values()) {
       pending.cleanup();
       pending.reject(error);
@@ -101,10 +108,15 @@ class Engine {
         },
       });
       signal?.addEventListener("abort", abort, { once: true });
-      this.worker.postMessage(
-        { id, ...operation },
-        operation.bytes ? [operation.bytes] : [],
-      );
+      void this.ready
+        .then((worker) => {
+          if (!this.pending.has(id) || this.stopped) return;
+          worker.postMessage(
+            { id, ...operation },
+            operation.bytes ? [operation.bytes] : [],
+          );
+        })
+        .catch((error: Error) => this.stop(error));
     });
   }
 }

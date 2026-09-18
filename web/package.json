@@ -10,6 +10,7 @@
     "format": "prettier --write src index.html vite.config.ts",
     "format:check": "prettier --check src index.html vite.config.ts",
     "build:browser": "vite build --mode browser && node ../scripts/frontend-licenses.mjs dist-browser",
+    "build:vscode": "tsc -b && vite build --mode vscode",
     "preview:browser": "vite preview --mode browser --host 127.0.0.1",
     "test:browser": "playwright test"
   },
